@@ -1,0 +1,6 @@
+{
+  "name": "Meu Painel de Vida",
+  "description": "Painel de vida pessoal completo para organizar tarefas, estudos, finanças, cronograma diário, lista de compras, mídias, músicas, leitura da Bíblia e lembretes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

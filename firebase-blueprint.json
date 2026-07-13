@@ -1,0 +1,27 @@
+{
+  "collections": {
+    "users_data": {
+      "documentId": "uid",
+      "fields": {
+        "userName": {
+          "type": "string"
+        },
+        "profilePicUrl": {
+          "type": "string"
+        },
+        "age": {
+          "type": "string"
+        },
+        "pin": {
+          "type": "string"
+        },
+        "onboardingCompleted": {
+          "type": "boolean"
+        },
+        "appData": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}
