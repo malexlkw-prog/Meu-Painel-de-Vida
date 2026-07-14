@@ -63,6 +63,11 @@ export interface MediaItem {
   rating: number; // 1-5
   notes: string;
   imageUrl?: string;
+  genre?: string;
+  franchise?: string;
+  platform?: string;
+  seasons?: { seasonNumber: number; episodesCount: number }[];
+  watchedEpisodes?: string[];
 }
 
 export interface MusicTrack {
@@ -468,6 +473,8 @@ export interface QueroComprarState {
   customCategories?: CustomCategory[];
   customCategoriesList?: CustomCategory[];
   customSubCategories?: { [categoryKey: string]: string[] };
+  deletedCategories?: string[];
+  deletedSubCategories?: { [categoryKey: string]: string[] };
 }
 
 // Gallery (Galeria) Area interfaces

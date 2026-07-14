@@ -81,6 +81,7 @@ import CustomizationDrawer from './components/CustomizationDrawer';
 import CatalogsSection, { DEFAULT_CATALOGS_STATE } from './components/CatalogsSection';
 import OnboardingWizard from './components/OnboardingWizard';
 import AuthScreen from './components/AuthScreen';
+import { getAllPhotos, getAlbums } from './utils/galleryDB';
 
 // Firebase imports
 import { auth, db, googleProvider } from './lib/firebase';
@@ -205,6 +206,395 @@ export default function App() {
 
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const [tabsVersion, setTabsVersion] = useState(0);
+
+  // Gallery and Album state for Context Manager
+  const [galleryPhotos, setGalleryPhotos] = useState<any[]>([]);
+  const [galleryAlbums, setGalleryAlbums] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadGalleryData() {
+      try {
+        const photos = await getAllPhotos();
+        const albums = await getAlbums();
+        setGalleryPhotos(photos || []);
+        setGalleryAlbums(albums || []);
+      } catch (err) {
+        console.error("Erro ao carregar dados da galeria para o Context Manager:", err);
+      }
+    }
+    if (activeTab === 'sete' || activeEntSubTab === 'gallery') {
+      loadGalleryData();
+    }
+  }, [activeTab, activeEntSubTab]);
+
+  // Context Manager for Sete IA
+  const getCompleteSiteData = () => {
+    // Calculate accurate metrics and statistics
+    const totalTasks = data.tasks?.length || 0;
+    const completedTasks = data.tasks?.filter(t => t.completed).length || 0;
+    const pendingTasks = totalTasks - completedTasks;
+
+    let totalEarnings = 0;
+    let totalExpenses = 0;
+    data.finance?.forEach(f => {
+      if (f.type === 'income') totalEarnings += f.amount;
+      else totalExpenses += f.amount;
+    });
+    const balance = totalEarnings - totalExpenses;
+
+    const hoursTrainedTotal = data.gym?.hoursTrainedTotal || 0;
+    const churchGoalsCompleted = data.church?.goals?.filter(g => g.completed).length || 0;
+    const wishlistItemsCount = data.queroComprar?.items?.length || 0;
+    const notesCount = data.notes?.length || 0;
+    const photosCount = galleryPhotos.length;
+
+    const statistics = {
+      totalTasks,
+      completedTasks,
+      pendingTasks,
+      totalEarnings,
+      totalExpenses,
+      balance,
+      hoursTrainedTotal,
+      churchGoalsCompleted,
+      wishlistItemsCount,
+      notesCount,
+      photosCount
+    };
+
+    // Filter out huge base64 photo data to prevent exceeding Gemini context limit
+    const galleryPhotosMeta = galleryPhotos.map(photo => ({
+      id: photo.id,
+      title: photo.title,
+      description: photo.description,
+      album: photo.album,
+      date: photo.date,
+      location: photo.location,
+      tags: photo.tags,
+      isFavorite: photo.isFavorite,
+      size: photo.size
+    }));
+
+    let tabsConfig = null;
+    try {
+      const saved = localStorage.getItem('lifehub_tabs_config');
+      if (saved) tabsConfig = JSON.parse(saved);
+    } catch (e) {
+      console.error("Erro ao ler abas personalizadas para o Context Manager:", e);
+    }
+
+    return {
+      ...data,
+
+      // Portuguese root keys for console logging and easy Sete IA access
+      estudos: data.studies || [],
+      escola: data.schoolSubjects || [],
+      disciplinas: data.studies || [],
+      treino: data.gym || null,
+      biblia: data.bible || null,
+      igreja: data.church || null,
+      galeria: {
+        photosCount,
+        albumsCount: galleryAlbums.length,
+        albumsList: galleryAlbums.map(a => a.name || a.id),
+        photos: galleryPhotosMeta
+      },
+      entretenimento: {
+        media: data.media || [],
+        music: data.music || null,
+        youtube: data.youtube || null
+      },
+      catalogo: data.catalogs || null,
+
+      // English root keys (ensure arrays are direct to match server expectations)
+      studies: data.studies || [],
+      schoolSubjects: data.schoolSubjects || [],
+      gym: data.gym || null,
+      church: data.church || null,
+      bible: data.bible || null,
+      media: data.media || [],
+      youtube: data.youtube || null,
+      finance: data.finance || [],
+      shoppingList: data.shoppingList || [],
+      queroComprar: data.queroComprar || null,
+      catalogs: data.catalogs || null,
+
+      // Structured modular context properties
+      profile: {
+        userName,
+        profilePicUrl: profilePicUrl ? "Definida" : "Não definida",
+        age,
+        pin: pin ? "Definido" : "Não definido",
+        user: user ? { uid: user.uid, email: user.email } : null,
+        onboardingCompleted,
+        tutorialCompleted,
+        sessionUnlocked
+      },
+      dashboard: {
+        activeTab,
+        activeOrgSubTab,
+        activeFinSubTab,
+        activeStudiesSubTab,
+        activeEntSubTab,
+        mobileMenuOpen,
+        isCustomizerOpen,
+        tabsVersion
+      },
+      organization: {
+        tasks: data.tasks || [],
+        schedule: data.schedule || [],
+        calendarMarkedDays: data.calendarMarkedDays || [],
+        reminders: data.reminders || [],
+        notes: data.notes || [],
+        creativityProjects: data.creativityProjects || []
+      },
+      gallery: {
+        photosCount,
+        albumsCount: galleryAlbums.length,
+        albumsList: galleryAlbums.map(a => a.name || a.id),
+        photos: galleryPhotosMeta
+      },
+      entertainment: {
+        media: data.media || [],
+        music: data.music || null
+      },
+      catalog: data.catalogs || null,
+      settings: {
+        darkMode,
+        activeSysSubTab
+      },
+      preferences: {
+        tabsConfig,
+        sidebarItems: getCustomizedSidebarItems()
+      },
+      statistics
+    };
+  };
+
+  const handleGetLatestSiteData = async () => {
+    // 1. Immediately write any pending local changes to Firestore if the user is authenticated
+    if (user) {
+      try {
+        const userDocRef = doc(db, 'users_data', user.uid);
+        await setDoc(userDocRef, {
+          userName,
+          profilePicUrl,
+          age,
+          pin,
+          onboardingCompleted,
+          tutorialCompleted,
+          appData: data
+        }, { merge: true });
+        console.log("[Context Manager] Sincronização imediata forçada com Firestore realizada com sucesso.");
+      } catch (err) {
+        console.error("[Context Manager] Erro ao sincronizar forçado com Firestore:", err);
+      }
+    }
+
+    // 2. Fetch the absolute latest document directly from Firestore
+    let latestAppData = data;
+    let latestUserName = userName;
+    let latestAge = age;
+    let latestPin = pin;
+    let latestOnboarding = onboardingCompleted;
+    let latestTutorial = tutorialCompleted;
+    let latestProfilePic = profilePicUrl;
+
+    if (user) {
+      try {
+        const userDocRef = doc(db, 'users_data', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          const fetched = userDocSnap.data();
+          if (fetched.appData) {
+            latestAppData = fetched.appData;
+            // Instantly update local state so the UI stays in sync
+            setData(fetched.appData);
+          }
+          if (fetched.userName) {
+            latestUserName = fetched.userName;
+            setUserName(fetched.userName);
+          }
+          if (fetched.age) {
+            latestAge = fetched.age;
+            setAge(fetched.age);
+          }
+          if (fetched.pin) {
+            latestPin = fetched.pin;
+            setPin(fetched.pin);
+          }
+          if (fetched.onboardingCompleted !== undefined) {
+            latestOnboarding = fetched.onboardingCompleted;
+            setOnboardingCompleted(fetched.onboardingCompleted);
+          }
+          if (fetched.tutorialCompleted !== undefined) {
+            latestTutorial = fetched.tutorialCompleted;
+            setTutorialCompleted(fetched.tutorialCompleted);
+          }
+          if (fetched.profilePicUrl) {
+            latestProfilePic = fetched.profilePicUrl;
+            setProfilePicUrl(fetched.profilePicUrl);
+          }
+        }
+      } catch (err) {
+        console.error("[Context Manager] Erro ao buscar último documento do Firestore:", err);
+      }
+    }
+
+    // 3. Re-read fresh photos and albums from gallery database
+    let latestPhotos: any[] = [];
+    let latestAlbums: any[] = [];
+    try {
+      latestPhotos = await getAllPhotos() || [];
+      latestAlbums = await getAlbums() || [];
+      setGalleryPhotos(latestPhotos);
+      setGalleryAlbums(latestAlbums);
+    } catch (err) {
+      console.error("[Context Manager] Erro ao recarregar dados da galeria:", err);
+    }
+
+    // 4. Rebuild the siteData object completely using the absolute latest values
+    const totalTasks = latestAppData.tasks?.length || 0;
+    const completedTasks = latestAppData.tasks?.filter((t: any) => t.completed).length || 0;
+    const pendingTasks = totalTasks - completedTasks;
+
+    let totalEarnings = 0;
+    let totalExpenses = 0;
+    latestAppData.finance?.forEach((f: any) => {
+      if (f.type === 'income') totalEarnings += f.amount;
+      else totalExpenses += f.amount;
+    });
+    const balance = totalEarnings - totalExpenses;
+
+    const hoursTrainedTotal = latestAppData.gym?.hoursTrainedTotal || 0;
+    const churchGoalsCompleted = latestAppData.church?.goals?.filter((g: any) => g.completed).length || 0;
+    const wishlistItemsCount = latestAppData.queroComprar?.items?.length || 0;
+    const notesCount = latestAppData.notes?.length || 0;
+    const photosCount = latestPhotos.length;
+
+    const statistics = {
+      totalTasks,
+      completedTasks,
+      pendingTasks,
+      totalEarnings,
+      totalExpenses,
+      balance,
+      hoursTrainedTotal,
+      churchGoalsCompleted,
+      wishlistItemsCount,
+      notesCount,
+      photosCount
+    };
+
+    const galleryPhotosMeta = latestPhotos.map((photo: any) => ({
+      id: photo.id,
+      title: photo.title,
+      description: photo.description,
+      album: photo.album,
+      date: photo.date,
+      location: photo.location,
+      tags: photo.tags,
+      isFavorite: photo.isFavorite,
+      size: photo.size
+    }));
+
+    let tabsConfig = null;
+    try {
+      const saved = localStorage.getItem('lifehub_tabs_config');
+      if (saved) tabsConfig = JSON.parse(saved);
+    } catch (e) {
+      console.error("[Context Manager] Erro ao ler abas personalizadas:", e);
+    }
+
+    const reconstructedSiteData = {
+      ...latestAppData,
+
+      // Portuguese root keys for console logging and easy Sete IA access
+      estudos: latestAppData.studies || [],
+      escola: latestAppData.schoolSubjects || [],
+      disciplinas: latestAppData.studies || [],
+      treino: latestAppData.gym || null,
+      biblia: latestAppData.bible || null,
+      igreja: latestAppData.church || null,
+      galeria: {
+        photosCount,
+        albumsCount: latestAlbums.length,
+        albumsList: latestAlbums.map((a: any) => a.name || a.id),
+        photos: galleryPhotosMeta
+      },
+      entretenimento: {
+        media: latestAppData.media || [],
+        music: latestAppData.music || null,
+        youtube: latestAppData.youtube || null
+      },
+      catalogo: latestAppData.catalogs || null,
+
+      // English root keys (ensure arrays are direct to match server expectations)
+      studies: latestAppData.studies || [],
+      schoolSubjects: latestAppData.schoolSubjects || [],
+      gym: latestAppData.gym || null,
+      church: latestAppData.church || null,
+      bible: latestAppData.bible || null,
+      media: latestAppData.media || [],
+      youtube: latestAppData.youtube || null,
+      finance: latestAppData.finance || [],
+      shoppingList: latestAppData.shoppingList || [],
+      queroComprar: latestAppData.queroComprar || null,
+      catalogs: latestAppData.catalogs || null,
+
+      profile: {
+        userName: latestUserName,
+        profilePicUrl: latestProfilePic ? "Definida" : "Não definida",
+        age: latestAge,
+        pin: latestPin ? "Definido" : "Não definido",
+        user: user ? { uid: user.uid, email: user.email } : null,
+        onboardingCompleted: latestOnboarding,
+        tutorialCompleted: latestTutorial,
+        sessionUnlocked
+      },
+      dashboard: {
+        activeTab,
+        activeOrgSubTab,
+        activeFinSubTab,
+        activeStudiesSubTab,
+        activeEntSubTab,
+        mobileMenuOpen,
+        isCustomizerOpen,
+        tabsVersion
+      },
+      organization: {
+        tasks: latestAppData.tasks || [],
+        schedule: latestAppData.schedule || [],
+        calendarMarkedDays: latestAppData.calendarMarkedDays || [],
+        reminders: latestAppData.reminders || [],
+        notes: latestAppData.notes || [],
+        creativityProjects: latestAppData.creativityProjects || []
+      },
+      gallery: {
+        photosCount,
+        albumsCount: latestAlbums.length,
+        albumsList: latestAlbums.map((a: any) => a.name || a.id),
+        photos: galleryPhotosMeta
+      },
+      entertainment: {
+        media: latestAppData.media || [],
+        music: latestAppData.music || null
+      },
+      catalog: latestAppData.catalogs || null,
+      settings: {
+        darkMode,
+        activeSysSubTab
+      },
+      preferences: {
+        tabsConfig,
+        sidebarItems: getCustomizedSidebarItems()
+      },
+      statistics
+    };
+
+    console.log("siteData enviado para Sete:", reconstructedSiteData);
+    return reconstructedSiteData;
+  };
 
   // 2. Firebase Authentication State Observer
   useEffect(() => {
@@ -1356,6 +1746,8 @@ export default function App() {
           data={data} 
           onApplyActions={handleApplySeteActions} 
           onCloseSete={() => setActiveTab('dashboard')} 
+          siteData={getCompleteSiteData()}
+          getLatestSiteData={handleGetLatestSiteData}
         />
         {renderTutorialOverlay()}
       </div>
@@ -1746,70 +2138,6 @@ export default function App() {
               <span>{activeEntSubTab === 'home' ? 'Voltar ao Dashboard' : 'Voltar às Opções'}</span>
             </button>
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white text-center flex-1 md:absolute md:left-1/2 md:-translate-x-1/2">🎬 {getTabLabel('entertainment', 'Central de Entretenimento')}</h1>
-
-            {activeEntSubTab !== 'home' && (
-              <div className="flex flex-wrap md:flex-nowrap items-center gap-2 bg-slate-100/90 dark:bg-slate-900/80 p-2 rounded-2xl md:rounded-full border border-slate-200/60 dark:border-slate-800 shadow-sm backdrop-blur-md mt-4 md:mt-0 w-full md:w-auto justify-center">
-                <button 
-                  onClick={() => setActiveEntSubTab('movies')}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-sans font-bold text-xs tracking-tight transition-all active:scale-95 duration-150 ${
-                    activeEntSubTab === 'movies' 
-                      ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-350 shadow-xs border border-red-100 dark:border-red-900/55 scale-[1.03]' 
-                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/30'
-                  }`}
-                >
-                  <Film size={18} />
-                  <span>Filmes</span>
-                </button>
-
-                <button 
-                  onClick={() => setActiveEntSubTab('series')}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-sans font-bold text-xs tracking-tight transition-all active:scale-95 duration-150 ${
-                    activeEntSubTab === 'series' 
-                      ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-350 shadow-xs border border-blue-100 dark:border-blue-900/55 scale-[1.03]' 
-                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/30'
-                  }`}
-                >
-                  <Tv size={18} />
-                  <span>Séries</span>
-                </button>
-
-                <button 
-                  onClick={() => setActiveEntSubTab('animes')}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-sans font-bold text-xs tracking-tight transition-all active:scale-95 duration-150 ${
-                    activeEntSubTab === 'animes' 
-                      ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-350 shadow-xs border border-purple-100 dark:border-purple-900/55 scale-[1.03]' 
-                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/30'
-                  }`}
-                >
-                  <Sparkles size={18} />
-                  <span>Animes</span>
-                </button>
-
-                <button 
-                  onClick={() => setActiveEntSubTab('music')}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-sans font-bold text-xs tracking-tight transition-all active:scale-95 duration-150 ${
-                    activeEntSubTab === 'music' 
-                      ? 'bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-350 shadow-xs border border-green-100 dark:border-green-900/55 scale-[1.03]' 
-                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/30'
-                  }`}
-                >
-                  <Music size={18} />
-                  <span>Músicas</span>
-                </button>
-
-                <button 
-                  onClick={() => setActiveEntSubTab('gallery')}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-sans font-bold text-xs tracking-tight transition-all active:scale-95 duration-150 ${
-                    activeEntSubTab === 'gallery' 
-                      ? 'bg-pink-50 dark:bg-pink-950/40 text-pink-600 dark:text-pink-350 shadow-xs border border-pink-100 dark:border-pink-900/55 scale-[1.03]' 
-                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/30'
-                  }`}
-                >
-                  <ImageIcon size={18} />
-                  <span>Galeria</span>
-                </button>
-              </div>
-            )}
           </div>
         </div>
 
@@ -2250,7 +2578,12 @@ export default function App() {
 
             {/* 2. SETE IA */}
             {activeTab === 'sete' && (
-              <SeteSection data={data} onApplyActions={handleApplySeteActions} />
+              <SeteSection 
+                data={data} 
+                onApplyActions={handleApplySeteActions} 
+                siteData={getCompleteSiteData()} 
+                getLatestSiteData={handleGetLatestSiteData}
+              />
             )}
 
             {/* 3. ORGANIZAÇÃO */}
