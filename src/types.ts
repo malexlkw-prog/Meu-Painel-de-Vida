@@ -443,7 +443,7 @@ export interface WishlistItem {
   notes?: string;
   status: 'want' | 'buying' | 'bought' | 'cancelled';
   category: string; // Key of category (e.g. 'clothes', 'shoes', 'accessories', 'caps', 'bags', 'electronics', 'games', 'personal', 'professional', 'gifts', 'favorites', 'all', or custom category id)
-  subCategory?: string; // Optional subcategory (e.g. 'Camisas', 'Camisas de Futebol', etc.)
+  subCategory?: string; // Optional subcategory (e.g. 'Camisas', 'Camisas de Time', etc.)
   imageUrl?: string;
   isFavorite: boolean;
   giftPersonId?: string; // Links to GiftPerson if category is 'gifts'

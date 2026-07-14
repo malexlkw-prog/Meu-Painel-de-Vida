@@ -194,6 +194,10 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
           deletedCategories: [...deleted, catId]
         };
       });
+      if (selectedCategoryId === catId) {
+        setView('home');
+        setSelectedCategoryId('');
+      }
       triggerSuccess(`Categoria "${catName}" excluída!`);
     }
   };
@@ -930,7 +934,15 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                   <ArrowLeft size={18} />
                 </button>
                 <div>
-                  <h2 className="text-lg font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                  <h2 
+                    onContextMenu={(e) => {
+                      if (view === 'category' && selectedCategoryId) {
+                        handleRightClickCategory(e, selectedCategoryId, mergedCategories.find(c => c.id === selectedCategoryId)?.name || 'Categoria');
+                      }
+                    }}
+                    title={view === 'category' ? "Clique com o botão direito no PC para excluir esta categoria" : undefined}
+                    className={`text-lg font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2 ${view === 'category' ? 'cursor-pointer select-none hover:text-rose-500' : ''}`}
+                  >
                     {view === 'category' 
                       ? `${mergedCategories.find(c => c.id === selectedCategoryId)?.name || 'Categoria'}` 
                       : view === 'favorites' 
@@ -968,11 +980,11 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
             </div>
 
             {/* Subtabs for current category */}
-            {view === 'category' && activeCategorySubcategories.length > 0 && (
+            {view === 'category' && (
               <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-[#111726]/40 p-1.5 rounded-2xl border border-slate-200/50 dark:border-slate-850 overflow-x-auto w-full">
                 <button
                   onClick={() => setClothingSubCategory('all')}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide transition-all ${clothingSubCategory === 'all' ? 'bg-white dark:bg-[#111726] text-pink-650 dark:text-pink-400 shadow-3xs' : 'text-slate-500 hover:text-slate-850 dark:hover:text-white'}`}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide transition-all ${clothingSubCategory === 'all' ? 'bg-white dark:bg-[#111726] text-pink-650 dark:text-pink-400 shadow-3xs' : 'text-slate-550 hover:text-slate-850 dark:hover:text-white'}`}
                 >
                   Todos
                 </button>

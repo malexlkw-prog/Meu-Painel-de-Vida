@@ -423,14 +423,11 @@ export default function App() {
             latestPin = fetched.pin;
             setPin(fetched.pin);
           }
-          if (fetched.onboardingCompleted !== undefined) {
-            latestOnboarding = fetched.onboardingCompleted;
-            setOnboardingCompleted(fetched.onboardingCompleted);
-          }
-          if (fetched.tutorialCompleted !== undefined) {
-            latestTutorial = fetched.tutorialCompleted;
-            setTutorialCompleted(fetched.tutorialCompleted);
-          }
+          // For existing accounts, onboarding and tutorial are always marked completed
+          latestOnboarding = true;
+          setOnboardingCompleted(true);
+          latestTutorial = true;
+          setTutorialCompleted(true);
           if (fetched.profilePicUrl) {
             latestProfilePic = fetched.profilePicUrl;
             setProfilePicUrl(fetched.profilePicUrl);
@@ -611,8 +608,22 @@ export default function App() {
             setProfilePicUrl(fetchedData.profilePicUrl || firebaseUser.photoURL || '');
             setAge(fetchedData.age || '');
             setPin(fetchedData.pin || '');
-            setOnboardingCompleted(fetchedData.onboardingCompleted ?? false);
-            setTutorialCompleted(fetchedData.tutorialCompleted ?? false);
+            
+            // returning user with existing account does not need onboarding or tutorial
+            setOnboardingCompleted(true);
+            setTutorialCompleted(true);
+            
+            // Persist these as completed if not already true in DB
+            if (fetchedData.onboardingCompleted !== true || fetchedData.tutorialCompleted !== true) {
+              try {
+                await setDoc(userDocRef, {
+                  onboardingCompleted: true,
+                  tutorialCompleted: true
+                }, { merge: true });
+              } catch (e) {
+                console.error("Erro ao marcar onboarding/tutorial como concluídos no Firestore:", e);
+              }
+            }
             
             if (fetchedData.appData) {
               setData(fetchedData.appData);
@@ -1688,7 +1699,7 @@ export default function App() {
 
   // 2. Auth State Gate (User must log in or sign up first)
   if (!user) {
-    return <AuthScreen onSuccess={() => {}} />;
+    return <AuthScreen onSuccess={() => setActiveTab('dashboard')} />;
   }
 
   // 3. Onboarding Wizard Gate (Trigger for brand new users)
