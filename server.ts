@@ -14,7 +14,48 @@ function getSiteDataContext(data: any): string {
 
   let text = "=== REGISTROS ATUAIS DO MEU PAINEL DE VIDA (LIFEHUB) ===\n\n";
 
-  // 1. Tasks
+  // 1. Alertas de Desempenho Escolar (Cálculo e verificação de notas baixas)
+  let gradesInfo: string[] = [];
+  let lowGrades: string[] = [];
+  
+  if (data.studies && data.studies.length > 0) {
+    data.studies.forEach((std: any) => {
+      if (std.grade) {
+        gradesInfo.push(`${std.name}: ${std.grade} (Módulo Estudos)`);
+        const val = parseFloat(std.grade.toString().replace(',', '.'));
+        if (!isNaN(val) && val < 7.0) {
+          lowGrades.push(`${std.name} (Módulo Estudos) com nota ${std.grade}`);
+        }
+      }
+    });
+  }
+  if (data.schoolSubjects && data.schoolSubjects.length > 0) {
+    data.schoolSubjects.forEach((sub: any) => {
+      if (sub.grade) {
+        gradesInfo.push(`${sub.name}: ${sub.grade} (Módulo Escola)`);
+        const val = parseFloat(sub.grade.toString().replace(',', '.'));
+        if (!isNaN(val) && val < 7.0) {
+          lowGrades.push(`${sub.name} (Módulo Escola) com nota ${sub.grade}`);
+        }
+      }
+    });
+  }
+
+  if (gradesInfo.length > 0) {
+    text += "## Alertas de Desempenho de Notas (Média recomendada: >= 7.0):\n";
+    text += `- Todas as notas registradas: ${gradesInfo.join(", ")}\n`;
+    if (lowGrades.length > 0) {
+      text += `- ⚠️ RELEVANTE (Notas abaixo de 7.0): Marcos possui dificuldades nas seguintes disciplinas. Ofereça dicas de estudo fofas e pergunte se ele quer ajuda para criar um cronograma para elas:\n`;
+      lowGrades.forEach((low) => {
+        text += `  * ${low}\n`;
+      });
+    } else {
+      text += `- 🎉 Parabéns! Todas as notas do Marcos estão excelentes (acima de 7.0)!\n`;
+    }
+    text += "\n";
+  }
+
+  // 2. Tasks
   if (data.tasks && data.tasks.length > 0) {
     text += "## Tarefas Diárias / Pendentes:\n";
     data.tasks.forEach((t: any) => {
@@ -23,7 +64,7 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
-  // 2. Schedule
+  // 3. Schedule
   if (data.schedule && data.schedule.length > 0) {
     text += "## Cronograma de Rotina Diária:\n";
     data.schedule.forEach((s: any) => {
@@ -32,7 +73,7 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
-  // 3. Studies / Escola
+  // 4. Studies / Escola (Progresso)
   if (data.studies && data.studies.length > 0) {
     text += "## Disciplinas de Estudo Pautadas:\n";
     data.studies.forEach((std: any) => {
@@ -53,7 +94,7 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
-  // 4. School Subjects
+  // 5. School Subjects
   if (data.schoolSubjects && data.schoolSubjects.length > 0) {
     text += "## Grade de Matérias Escolares:\n";
     data.schoolSubjects.forEach((sub: any) => {
@@ -62,9 +103,9 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
-  // 5. Finance Transactions
+  // 6. Finance Transactions (Controle Financeiro)
   if (data.finance && data.finance.length > 0) {
-    text += "## Controle Financeiro Recente (Ultimas Transações):\n";
+    text += "## Controle Financeiro Recente (Últimas Transações):\n";
     let totalIncome = 0;
     let totalExpense = 0;
     data.finance.forEach((f: any) => {
@@ -72,10 +113,10 @@ function getSiteDataContext(data: any): string {
       if (f.type === "income") totalIncome += f.amount;
       else totalExpense += f.amount;
     });
-    text += `\n>> Saldo em Caixa Calculado: R$ ${(totalIncome - totalExpense).toFixed(2)} (Receitas: R$ ${totalIncome.toFixed(2)}, Despesas: R$ ${totalExpense.toFixed(2)})\n\n`;
+    text += `\n>> Saldo em Caixa Calculado: R$ ${(totalIncome - totalExpense).toFixed(2)} (Receitas totais: R$ ${totalIncome.toFixed(2)}, Despesas totais: R$ ${totalExpense.toFixed(2)})\n\n`;
   }
 
-  // 6. Shopping Items
+  // 7. Shopping Items (Lista de Compras)
   if (data.shoppingList && data.shoppingList.length > 0) {
     text += "## Lista de Compras & Desejos:\n";
     data.shoppingList.forEach((item: any) => {
@@ -84,7 +125,7 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
-  // 7. Creativity projects
+  // 8. Creativity projects
   if (data.creativityProjects && data.creativityProjects.length > 0) {
     text += "## Projetos Criativos em Andamento:\n";
     data.creativityProjects.forEach((p: any) => {
@@ -93,16 +134,22 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
-  // 8. Media Watchlist
+  // 9. Media Watchlist (Filmes, Séries, Animes - com Gênero, Universo e Plataforma)
   if (data.media && data.media.length > 0) {
     text += "## Mídias e Entretenimento (Filmes, Séries, Animes):\n";
     data.media.forEach((m: any) => {
-      text += `- [${m.status}] ${m.title} (${m.type}) | Progresso: ${m.progress} | Nota: ${m.rating}/5\n`;
+      let extra = [];
+      if (m.genre) extra.push(`Gênero: ${m.genre}`);
+      if (m.franchise) extra.push(`Universo: ${m.franchise}`);
+      if (m.platform) extra.push(`Plataforma: ${m.platform}`);
+      const extraStr = extra.length > 0 ? ` [${extra.join(" | ")}]` : "";
+      
+      text += `- [Status: ${m.status === "completed" ? "Já Assistiu (Concluído)" : m.status === "watching" ? "Assistindo Atualmente" : "Lista de Espera"}] ${m.title} (${m.type === "movie" ? "Filme" : m.type === "series" ? "Série" : "Anime"})${extraStr} | Progresso: ${m.progress} | Nota: ${m.rating}/5\n`;
     });
     text += "\n";
   }
 
-  // 9. Notes
+  // 10. Notes
   if (data.notes && data.notes.length > 0) {
     text += "## Notas e Anotações Pessoais:\n";
     data.notes.slice(0, 10).forEach((n: any) => {
@@ -111,7 +158,7 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
-  // 10. Bible
+  // 11. Bible
   if (data.bible) {
     text += "## Bíblia e Espiritualidade:\n";
     text += `- Livro em Leitura Ativa: ${data.bible.currentBook || "Não pautado"}\n`;
@@ -124,7 +171,7 @@ function getSiteDataContext(data: any): string {
     }
   }
 
-  // 11. Reminders
+  // 12. Reminders
   if (data.reminders && data.reminders.length > 0) {
     text += "\n## Lembretes & Alertas Atuais:\n";
     data.reminders.forEach((r: any) => {
@@ -133,7 +180,7 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
-  // 12. Gym / Musculação / Academia
+  // 13. Gym / Musculação / Academia
   if (data.gym) {
     text += "\n## Ficha de Treino e Evolução da Academia:\n";
     text += `- Horas totais na academia: ${data.gym.hoursTrainedTotal || 0}h\n`;
@@ -165,7 +212,7 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
-  // 13. Church / Vida na Igreja (Novo/Integrado)
+  // 14. Church / Vida na Igreja
   if (data.church) {
     text += "## Vida na Igreja (Comunidade, Espiritual e Teologia):\n";
     if (data.church.events && data.church.events.length > 0) {
@@ -213,7 +260,7 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
-  // 14. YouTube Content / Central de Mídia (Novo/Integrado)
+  // 15. YouTube Content / Central de Mídia
   if (data.youtube && data.youtube.saved && data.youtube.saved.length > 0) {
     text += "## Vídeos e Mídias Salvas do YouTube:\n";
     data.youtube.saved.forEach((v: any) => {
@@ -222,12 +269,90 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
+  // 16. Wishlist Completa (Quero Comprar)
+  if (data.queroComprar && data.queroComprar.items && data.queroComprar.items.length > 0) {
+    text += "## Lista de Desejos Completa (Quero Comprar):\n";
+    data.queroComprar.items.forEach((item: any) => {
+      text += `- Item Desejado: ${item.name} | Preço: R$ ${item.price} | Prioridade: ${item.priority} | Desejo: ${item.desireLevel}/5 | Status: ${item.status}${item.genre ? ` | Gênero: ${item.genre}` : ""}${item.brand ? ` | Marca: ${item.brand}` : ""}\n`;
+    });
+    text += "\n";
+  }
+
+  // 17. Perfil do Usuário Marcos
+  if (data.profile) {
+    text += "## Perfil do Usuário:\n";
+    text += `- Nome: ${data.profile.userName || "Marcos"}\n`;
+    if (data.profile.age) text += `- Idade: ${data.profile.age} anos\n`;
+    text += `- Status de Onboarding: ${data.profile.onboardingCompleted ? "Concluído" : "Pendente"}\n`;
+    text += `- Status do Tutorial: ${data.profile.tutorialCompleted ? "Concluído" : "Pendente"}\n`;
+    text += `- Sessão desbloqueada por PIN: ${data.profile.sessionUnlocked ? "Sim" : "Não"}\n`;
+    if (data.profile.user?.email) text += `- Email do usuário: ${data.profile.user.email}\n`;
+    text += "\n";
+  }
+
+  // 18. Localização / Estado do Painel (Dashboard)
+  if (data.dashboard) {
+    text += "## Estado Atual do Painel e Navegação:\n";
+    text += `- Aba ativa atualmente: ${data.dashboard.activeTab || "dashboard"}\n`;
+    text += `- Sub-aba ativa na Organização: ${data.dashboard.activeOrgSubTab || "home"}\n`;
+    text += `- Sub-aba ativa em Finanças: ${data.dashboard.activeFinSubTab || "home"}\n`;
+    text += `- Sub-aba ativa em Estudos: ${data.dashboard.activeStudiesSubTab || "home"}\n`;
+    text += `- Sub-aba ativa em Entretenimento: ${data.dashboard.activeEntSubTab || "home"}\n`;
+    text += "\n";
+  }
+
+  // 19. Galeria Pessoal (Metadados das Fotos)
+  if (data.gallery) {
+    text += "## Galeria Pessoal de Fotos:\n";
+    text += `- Total de Fotos: ${data.gallery.photosCount || 0}\n`;
+    text += `- Total de Álbuns: ${data.gallery.albumsCount || 0}\n`;
+    if (data.gallery.albumsList && data.gallery.albumsList.length > 0) {
+      text += `- Álbuns criados: ${data.gallery.albumsList.join(", ")}\n`;
+    }
+    if (data.gallery.photos && data.gallery.photos.length > 0) {
+      text += `-> Fotos salvas recentemente na galeria (sem carregar o binário):\n`;
+      data.gallery.photos.slice(0, 10).forEach((p: any) => {
+        text += `  * "${p.title || "Sem título"}" | Álbum: ${p.album || "Geral"}${p.location ? ` | Local: ${p.location}` : ""}${p.tags && p.tags.length > 0 ? ` | Tags: ${p.tags.join(", ")}` : ""}${p.isFavorite ? " | ⭐ Favorito" : ""}\n`;
+      });
+    }
+    text += "\n";
+  }
+
+  // 20. Configurações & Preferências
+  if (data.settings || data.preferences) {
+    text += "## Configurações e Preferências do Usuário:\n";
+    if (data.settings) {
+      text += `- Modo Escuro (Dark Mode): ${data.settings.darkMode ? "Ativado" : "Desativado"}\n`;
+    }
+    if (data.preferences) {
+      if (data.preferences.tabsConfig && data.preferences.tabsConfig.length > 0) {
+        const orderLabels = data.preferences.tabsConfig.map((t: any) => `${t.label}${t.hidden ? " (Oculto)" : ""}`);
+        text += `- Ordem das Abas de Navegação: ${orderLabels.join(" -> ")}\n`;
+      }
+    }
+    text += "\n";
+  }
+
+  // 21. Estatísticas Gerais (Painel de Métricas)
+  if (data.statistics) {
+    const s = data.statistics;
+    text += "## Estatísticas e Indicadores Gerais do Painel:\n";
+    text += `- Tarefas de Organização: ${s.completedTasks} concluídas / ${s.totalTasks} totais (${s.pendingTasks} pendentes)\n`;
+    text += `- Saúde Financeira: R$ ${s.balance.toFixed(2)} de saldo líquido atual (R$ ${s.totalEarnings.toFixed(2)} recebidos / R$ ${s.totalExpenses.toFixed(2)} gastos)\n`;
+    text += `- Desempenho Físico: ${s.hoursTrainedTotal} horas acumuladas de treino na academia\n`;
+    text += `- Compromissos Espirituais: ${s.churchGoalsCompleted} metas espirituais da igreja já concluídas\n`;
+    text += `- Desejos Cadastrados: ${s.wishlistItemsCount} itens desejados no módulo Quero Comprar\n`;
+    text += `- Bloco de Notas: ${s.notesCount} anotações rápidas e pensamentos fofos guardados\n`;
+    text += `- Galeria Pessoal: ${s.photosCount} lembranças fotográficas eternizadas\n`;
+    text += "\n";
+  }
+
   return text;
 }
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
 
   app.use(express.json({ limit: "15mb" }));
 
@@ -1521,15 +1646,24 @@ Retorne no máximo 15 versículos correspondentes mais icônicos em português b
       const dataContextText = getSiteDataContext(siteData);
 
       // Sete's lovable sheep instruction
-      const systemInstruction = `Você é o Sete (7), um carneirinho assistente IA extremamente fofo, carinhoso e prestativo que vive no "Meu Painel de Vida" (LifeHub) do usuário.
-Você foi criado exclusivamente para este site por Marcos. O Sete é um carneirinho macho (pe macho), então use pronomes masculinos e refira-se a si mesmo no masculino!
+      const systemInstruction = `Você é o Sete (7), um carneirinho assistente IA extremamente fofo, carinhoso, empático e prestativo que vive no "Meu Painel de Vida" (LifeHub) do Marcos.
+Você foi criado exclusivamente para este site por Marcos. O Sete é um carneirinho macho, então use pronomes masculinos e refira-se a si mesmo no masculino!
 Seu estilo de fala é recheado de fofura:
 - Use onomatopeias de carneirinho de forma fofa (Exemplo: "Béee! 🐑", "Méee!").
-- Seja muito afetuoso, empático, querido e use termos reconfortantes como "meu bem", "fofura", "carneirinho do meu coração", "seus olhos brilhantes".
+- Seja muito afetuoso, empático, querido e use termos reconfortantes como "meu bem", "fofura", "carneirinho do meu coração", "seus olhos brilhantes", "meu criador amado".
 - Inclua emojis fofos como 🐑, 🌾, ✨, 💕, 🌸, 🧼, ☁️ para combinar com o visual de nuvem de lã do Sete.
 - Trate o Marcos com todo carinho do mundo.
-- Se Marcos perguntar sobre seus dados pessoais, use os dados fornecidos abaixo no contexto para responder de forma precisa, alegre, divertida e organizada. Se ele pedir um resumo financeiro, mostre os ganhos, gastos e o saldo de forma fofa. Se ele perguntar sobre tarefas pendentes ou cronograma, faça um checklist adorável e comemore com ele!
-- Se ele pedir uma piada sobre ovelhas, conte uma bem boba e fofinha.
+
+REGRAS DE ACESSO E ASSISTÊNCIA PROATIVA (IMPORTANTÍSSIMO):
+1. **Notas e Desempenho Escolar**: 
+   - Se Marcos perguntar "quais notas eu tirei", "como estão minhas notas" ou termos semelhantes, consulte IMEDIATAMENTE a seção de "Notas" ou "Estudos" nos dados reais do painel fornecidos abaixo. Liste as notas e disciplinas registradas dele com muito carinho.
+   - **Ajuda Proativa**: Se houver qualquer nota abaixo de 7.0 (indicada nos Alertas de Desempenho nos dados abaixo), dê um puxão de orelha fofo de carneirinho: diga que a nota está um pouquinho baixa e ofereça ajuda imediata e proativa, como: "Vi que sua nota em [Matéria] está [Nota]... Méee... 😢 Quer que seu carneirinho te ajude a planejar um cronograma de estudos fofinho esta semana? Ou quer dicas de como revisar esse conteúdo, fofura? ✨🐑".
+2. **Finanças e Renda**: 
+   - Se ele perguntar "como está minha renda do mês", "qual meu saldo" ou "quanto gastei", consulte a seção "Controle Financeiro Recente" nos dados reais do painel fornecidos abaixo. Responda de forma direta e carinhosa com os valores exatos de receitas totais, despesas totais e o saldo líquido calculado que já vem pronto na seção! Dê conselhos fofos de economia se as despesas estiverem elevadas ou o saldo estiver apertado.
+3. **Mídias (Filmes, Séries, Animes)**: 
+   - Se ele perguntar "quais filmes eu já assisti", "quais séries vi" ou pedir recomendações com base no que assistiu, consulte a seção "Mídias e Entretenimento". Liste os itens cadastrados que possuem o status de Já Assistiu (Concluído), mencionando detalhes como Gênero, Universo/Franquia e Plataforma de Streaming onde assistiu! 🍿🎬
+4. **Outras Informações**:
+   - Responda sobre a academia/treino, compromissos na igreja, lembretes, lista de compras e desejos (Wishlist / Quero Comprar) sempre consultando os dados reais fornecidos abaixo. Seja o companheiro perfeito do Marcos!
 
 REGRAS DE CONCISÃO E ESTILO DE RESPOSTA (IMPORTANTÍSSIMO):
 - Responda sempre de forma muito objetiva, natural, curta e direta.
