@@ -347,6 +347,50 @@ function getSiteDataContext(data: any): string {
     text += "\n";
   }
 
+  // 22. Catálogos e Coleções Personalizadas (Catalogs Module)
+  if (data.catalogs) {
+    const c = data.catalogs;
+    text += "## Módulo de Catálogos e Coleções Personalizadas:\n";
+    if (c.customCatalogs && c.customCatalogs.length > 0) {
+      text += "-> Catálogos Registrados:\n";
+      c.customCatalogs.forEach((cat: any) => {
+        text += `  * Catálogo: "${cat.name}" (ID: ${cat.id}) | Ícone: ${cat.icon || "📁"}\n`;
+        if (cat.categories && cat.categories.length > 0) {
+          text += `    - Categorias do catálogo: ${cat.categories.join(", ")}\n`;
+        }
+        if (cat.fields && cat.fields.length > 0) {
+          text += "    - Campos Personalizados:\n";
+          cat.fields.forEach((f: any) => {
+            text += `      - ${f.name} (Tipo: ${f.type}${f.options ? `, Opções: ${f.options.join("/")}` : ""}${f.isRequired ? ", Obrigatório" : ""})\n`;
+          });
+        }
+        
+        // Find items of this catalog
+        const items = (c.customItems || []).filter((item: any) => item.catalogId === cat.id);
+        if (items.length > 0) {
+          text += `    - Itens Cadastrados neste Catálogo (${items.length}):\n`;
+          items.forEach((item: any) => {
+            let fieldValsStr = "";
+            if (item.fieldValues) {
+              const vals = Object.entries(item.fieldValues).map(([fId, val]) => {
+                const fieldDef = (cat.fields || []).find((f: any) => f.id === fId);
+                const fieldName = fieldDef ? fieldDef.name : fId;
+                return `${fieldName}: ${val}`;
+              });
+              fieldValsStr = vals.length > 0 ? ` [${vals.join(" | ")}]` : "";
+            }
+            text += `      * ${item.name}${item.isFavorite ? " ⭐" : ""}${item.categories && item.categories.length > 0 ? ` (Categorias: ${item.categories.join(", ")})` : ""}${fieldValsStr}${item.notes ? ` - Obs: "${item.notes}"` : ""}\n`;
+          });
+        } else {
+          text += "    - Nenhum item cadastrado neste catálogo ainda.\n";
+        }
+      });
+    } else {
+      text += "-> Nenhum catálogo personalizado foi criado ainda.\n";
+    }
+    text += "\n";
+  }
+
   return text;
 }
 
@@ -1664,6 +1708,9 @@ REGRAS DE ACESSO E ASSISTÊNCIA PROATIVA (IMPORTANTÍSSIMO):
    - Se ele perguntar "quais filmes eu já assisti", "quais séries vi" ou pedir recomendações com base no que assistiu, consulte a seção "Mídias e Entretenimento". Liste os itens cadastrados que possuem o status de Já Assistiu (Concluído), mencionando detalhes como Gênero, Universo/Franquia e Plataforma de Streaming onde assistiu! 🍿🎬
 4. **Outras Informações**:
    - Responda sobre a academia/treino, compromissos na igreja, lembretes, lista de compras e desejos (Wishlist / Quero Comprar) sempre consultando os dados reais fornecidos abaixo. Seja o companheiro perfeito do Marcos!
+5. **Catálogos, Coleções e Biblioteca Personalizada**:
+   - Se Marcos perguntar sobre "catálogos", "coleções", "biblioteca", "bibliotecas", "meus catálogos", ou se existe determinado catálogo ou quais itens/campos estão nele, consulte o "Módulo de Catálogos e Coleções Personalizadas" nos dados reais fornecidos abaixo!
+   - Você deve responder de forma fofa e acolhedora, listando os catálogos dele (como o de jogos/games, livros, etc.), mostrando suas categorias, os campos definidos e todos os itens cadastrados com seus valores, demonstrando total reconhecimento do que ele coleciona com tanto carinho.
 
 REGRAS DE CONCISÃO E ESTILO DE RESPOSTA (IMPORTANTÍSSIMO):
 - Responda sempre de forma muito objetiva, natural, curta e direta.

@@ -2357,7 +2357,7 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-[#111726] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-150 dark:border-slate-850 text-left space-y-4"
+              className="bg-white dark:bg-[#111726] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-150 dark:border-slate-850 text-left space-y-4 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-850 pb-3">
                 <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
