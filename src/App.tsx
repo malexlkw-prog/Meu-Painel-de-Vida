@@ -195,8 +195,44 @@ export default function App() {
   const hasLoadedFromServerRef = useRef<boolean>(false);
   const isResettingDataRef = useRef<boolean>(false);
 
+  const sanitizeFirestoreData = (obj: any, path: string = ""): any => {
+    if (obj === undefined) {
+      console.log(`${path || "root"} = undefined`);
+      return null;
+    }
+    if (obj === null) {
+      return null;
+    }
+    if (Array.isArray(obj)) {
+      return obj.map((item, index) => sanitizeFirestoreData(item, `${path}[${index}]`));
+    }
+    if (typeof obj === 'object') {
+      const sanitized: any = {};
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          const val = obj[key];
+          const currentPath = path ? `${path}.${key}` : key;
+          if (val === undefined) {
+            console.log(`${currentPath} = undefined`);
+            sanitized[key] = null;
+          } else {
+            sanitized[key] = sanitizeFirestoreData(val, currentPath);
+          }
+        }
+      }
+      return sanitized;
+    }
+    return obj;
+  };
+
   const isSafeToSaveAppData = async (userId: string, localData: PainelData): Promise<boolean> => {
+    console.log("[Data Guard] Iniciando verificação de segurança para salvar appData...");
+    console.log("[Data Guard] ID do Usuário:", userId);
+    console.log("[Data Guard] isResettingDataRef.current:", isResettingDataRef.current);
+    console.log("[Data Guard] hasLoadedFromServerRef.current:", hasLoadedFromServerRef.current);
+
     if (isResettingDataRef.current) {
+      console.log("[Data Guard] Reset de dados local em andamento. Ignorando verificações adicionais.");
       return true;
     }
 
@@ -207,9 +243,11 @@ export default function App() {
 
     try {
       const userDocRef = doc(db, 'users_data', userId);
+      console.log("[Data Guard] Lendo documento remoto do Firestore antes de validar...");
       const docSnap = await getDoc(userDocRef);
       
       if (!docSnap.exists()) {
+        console.log("[Data Guard] Documento não existe no Firestore. Novo usuário detectado. Permitindo gravação.");
         return true;
       }
 
@@ -217,6 +255,7 @@ export default function App() {
       const remoteAppData = remoteData?.appData;
 
       if (!remoteAppData) {
+        console.log("[Data Guard] Documento remoto existe mas não contém appData. Permitindo gravação.");
         return true;
       }
 
@@ -248,11 +287,14 @@ export default function App() {
         }
       }
 
+      console.log(`[Data Guard] Estatísticas: Itens locais = ${localTotalItems}, Itens remotos = ${remoteTotalItems}`);
+
       if (remoteTotalItems > 0 && localTotalItems === 0) {
         console.error(`[Data Guard] ABORTADO: O estado local está vazio, mas o Firestore remoto contém ${remoteTotalItems} itens. Tentativa de sobrescrever dados com objeto vazio impedida.`);
         return false;
       }
 
+      console.log("[Data Guard] Validação concluída. Permitindo gravação no Firestore.");
       return true;
     } catch (e) {
       console.error("[Data Guard] Erro ao validar segurança de gravação do Firestore:", e);
@@ -446,7 +488,12 @@ export default function App() {
         const isSafe = await isSafeToSaveAppData(user.uid, data);
         if (isSafe) {
           const userDocRef = doc(db, 'users_data', user.uid);
-          await setDoc(userDocRef, {
+          console.log("[setDoc] Iniciando gravação imediata (handleGetLatestSiteData)");
+          console.log("[setDoc] Documento:", userDocRef.path);
+          console.log("Objeto enviado:", data);
+          console.log(JSON.stringify(data, null, 2));
+          
+          const fullDocData = {
             userName,
             profilePicUrl,
             age,
@@ -454,8 +501,14 @@ export default function App() {
             onboardingCompleted,
             tutorialCompleted,
             appData: data
-          }, { merge: true });
-          console.log("[Context Manager] Sincronização imediata forçada com Firestore realizada com sucesso.");
+          };
+          
+          console.log("[Sanitizer] Iniciando auditoria recursiva de campos undefined para gravação imediata...");
+          const sanitizedDocData = sanitizeFirestoreData(fullDocData);
+          console.log("[Sanitizer] Auditoria recursiva de campos concluída com sucesso.");
+          
+          await setDoc(userDocRef, sanitizedDocData, { merge: true });
+          console.log("[setDoc] Sincronização imediata forçada com Firestore realizada com sucesso (handleGetLatestSiteData).");
         } else {
           console.warn("[Context Manager] Sincronização imediata forçada abortada para evitar sobrescrever dados do Firestore com estado vazio.");
         }
@@ -689,10 +742,14 @@ export default function App() {
             // Persist these as completed if not already true in DB
             if (fetchedData.onboardingCompleted !== true || fetchedData.tutorialCompleted !== true) {
               try {
+                console.log("[setDoc] Iniciando gravação de conclusão onboarding/tutorial");
+                console.log("[setDoc] Documento:", userDocRef.path);
+                console.log("[setDoc] Dados enviados:", { onboardingCompleted: true, tutorialCompleted: true });
                 await setDoc(userDocRef, {
                   onboardingCompleted: true,
                   tutorialCompleted: true
                 }, { merge: true });
+                console.log("[setDoc] Conclusão onboarding/tutorial persistida com sucesso.");
               } catch (e) {
                 console.error("Erro ao marcar onboarding/tutorial como concluídos no Firestore:", e);
               }
@@ -721,7 +778,13 @@ export default function App() {
               appData: EMPTY_DATA
             };
             // Create default document safely
-            await setDoc(userDocRef, initialUserData);
+            console.log("[setDoc] Iniciando gravação de novo usuário");
+            console.log("[setDoc] Documento:", userDocRef.path);
+            console.log("[Sanitizer] Iniciando auditoria recursiva de campos undefined para gravação de novo usuário...");
+            const sanitizedInitialUserData = sanitizeFirestoreData(initialUserData);
+            console.log("[Sanitizer] Auditoria recursiva de campos concluída com sucesso.");
+            await setDoc(userDocRef, sanitizedInitialUserData);
+            console.log("[setDoc] Novo usuário criado com sucesso.");
 
             setUserName(initialUserData.userName);
             setProfilePicUrl(initialUserData.profilePicUrl);
@@ -757,7 +820,12 @@ export default function App() {
 
   // 3. Debounced Firestore Cloud Save
   useEffect(() => {
-    if (!user || !hasLoadedFromServerRef.current) return;
+    if (!user || !hasLoadedFromServerRef.current) {
+      console.log("[Debounced Sync] Efeito disparado, mas ignorado. user:", !!user, "hasLoadedFromServerRef:", hasLoadedFromServerRef.current);
+      return;
+    }
+
+    console.log("[Debounced Sync] Efeito de gravação debounced disparado devido a alterações no estado.");
 
     const delayDebounceFn = setTimeout(async () => {
       try {
@@ -768,7 +836,12 @@ export default function App() {
         }
 
         const userDocRef = doc(db, 'users_data', user.uid);
-        await setDoc(userDocRef, {
+        console.log("[setDoc] Iniciando gravação periódica (Debounced Save)");
+        console.log("[setDoc] Documento:", userDocRef.path);
+        console.log("Objeto enviado:", data);
+        console.log(JSON.stringify(data, null, 2));
+        
+        const fullDocData = {
           userName,
           profilePicUrl,
           age,
@@ -776,8 +849,14 @@ export default function App() {
           onboardingCompleted,
           tutorialCompleted,
           appData: data
-        }, { merge: true });
-        console.log("Firestore cloud sync completed successfully.");
+        };
+        
+        console.log("[Sanitizer] Iniciando auditoria recursiva de campos undefined para Debounced Save...");
+        const sanitizedDocData = sanitizeFirestoreData(fullDocData);
+        console.log("[Sanitizer] Auditoria recursiva de campos concluída com sucesso.");
+        
+        await setDoc(userDocRef, sanitizedDocData, { merge: true });
+        console.log("[setDoc] Sincronização periódica realizada com sucesso no Firestore.");
       } catch (err) {
         console.error("Error syncing to Firestore cloud:", err);
       }
@@ -1784,9 +1863,13 @@ export default function App() {
           setActiveTab('dashboard');
           try {
             const userDocRef = doc(db, 'users_data', user.uid);
+            console.log("[setDoc] Iniciando gravação de conclusão do tutorial");
+            console.log("[setDoc] Documento:", userDocRef.path);
+            console.log("[setDoc] Dados enviados:", { tutorialCompleted: true });
             await setDoc(userDocRef, {
               tutorialCompleted: true
             }, { merge: true });
+            console.log("[setDoc] Conclusão do tutorial persistida com sucesso.");
           } catch (err) {
             console.error("Erro ao salvar progresso do tutorial:", err);
           }
@@ -3343,9 +3426,13 @@ export default function App() {
                     if (user) {
                       try {
                         const userDocRef = doc(db, 'users_data', user.uid);
+                        console.log("[setDoc] Iniciando gravação de reinício do tutorial");
+                        console.log("[setDoc] Documento:", userDocRef.path);
+                        console.log("[setDoc] Dados enviados:", { tutorialCompleted: false });
                         await setDoc(userDocRef, {
                           tutorialCompleted: false
                         }, { merge: true });
+                        console.log("[setDoc] Reinício do tutorial persistido com sucesso.");
                       } catch (err) {
                         console.error("Erro ao reiniciar tutorial no Firestore:", err);
                       }
