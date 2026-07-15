@@ -192,6 +192,74 @@ export default function App() {
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(false);
   const [tutorialCompleted, setTutorialCompleted] = useState<boolean>(false);
   const [tutorialStepIndex, setTutorialStepIndex] = useState<number>(0);
+  const hasLoadedFromServerRef = useRef<boolean>(false);
+  const isResettingDataRef = useRef<boolean>(false);
+
+  const isSafeToSaveAppData = async (userId: string, localData: PainelData): Promise<boolean> => {
+    if (isResettingDataRef.current) {
+      return true;
+    }
+
+    if (!hasLoadedFromServerRef.current) {
+      console.warn("[Data Guard] Abortando escrita: Carregamento inicial ainda não terminou.");
+      return false;
+    }
+
+    try {
+      const userDocRef = doc(db, 'users_data', userId);
+      const docSnap = await getDoc(userDocRef);
+      
+      if (!docSnap.exists()) {
+        return true;
+      }
+
+      const remoteData = docSnap.data();
+      const remoteAppData = remoteData?.appData;
+
+      if (!remoteAppData) {
+        return true;
+      }
+
+      const listsToCheck = [
+        'shoppingList',
+        'tasks',
+        'schedule',
+        'studies',
+        'media',
+        'reminders',
+        'finance',
+        'notes',
+        'creativityProjects',
+        'calendarMarkedDays'
+      ];
+
+      let localTotalItems = 0;
+      let remoteTotalItems = 0;
+
+      for (const key of listsToCheck) {
+        const localList = (localData as any)[key];
+        const remoteList = remoteAppData[key];
+
+        if (Array.isArray(localList)) {
+          localTotalItems += localList.length;
+        }
+        if (Array.isArray(remoteList)) {
+          remoteTotalItems += remoteList.length;
+        }
+      }
+
+      if (remoteTotalItems > 0 && localTotalItems === 0) {
+        console.error(`[Data Guard] ABORTADO: O estado local está vazio, mas o Firestore remoto contém ${remoteTotalItems} itens. Tentativa de sobrescrever dados com objeto vazio impedida.`);
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      console.error("[Data Guard] Erro ao validar segurança de gravação do Firestore:", e);
+      return false;
+    }
+  };
+
   const [sessionUnlocked, setSessionUnlocked] = useState<boolean>(() => {
     return sessionStorage.getItem('lifehub_unlocked') === 'true';
   });
@@ -375,17 +443,22 @@ export default function App() {
     // 1. Immediately write any pending local changes to Firestore if the user is authenticated
     if (user) {
       try {
-        const userDocRef = doc(db, 'users_data', user.uid);
-        await setDoc(userDocRef, {
-          userName,
-          profilePicUrl,
-          age,
-          pin,
-          onboardingCompleted,
-          tutorialCompleted,
-          appData: data
-        }, { merge: true });
-        console.log("[Context Manager] Sincronização imediata forçada com Firestore realizada com sucesso.");
+        const isSafe = await isSafeToSaveAppData(user.uid, data);
+        if (isSafe) {
+          const userDocRef = doc(db, 'users_data', user.uid);
+          await setDoc(userDocRef, {
+            userName,
+            profilePicUrl,
+            age,
+            pin,
+            onboardingCompleted,
+            tutorialCompleted,
+            appData: data
+          }, { merge: true });
+          console.log("[Context Manager] Sincronização imediata forçada com Firestore realizada com sucesso.");
+        } else {
+          console.warn("[Context Manager] Sincronização imediata forçada abortada para evitar sobrescrever dados do Firestore com estado vazio.");
+        }
       } catch (err) {
         console.error("[Context Manager] Erro ao sincronizar forçado com Firestore:", err);
       }
@@ -626,19 +699,38 @@ export default function App() {
             }
             
             if (fetchedData.appData) {
-              setData(fetchedData.appData);
+              // Safe merging to make sure we don't lose any root properties of fetchedData.appData,
+              // but we do not overwrite existing arrays or fields with empty values.
+              setData({
+                ...EMPTY_DATA,
+                ...fetchedData.appData
+              });
             } else {
               setData(EMPTY_DATA);
             }
+            hasLoadedFromServerRef.current = true;
           } else {
             // Document does not exist: New user onboarding!
-            setUserName(firebaseUser.displayName || '');
-            setProfilePicUrl(firebaseUser.photoURL || '');
+            const initialUserData = {
+              userName: firebaseUser.displayName || 'Usuário',
+              profilePicUrl: firebaseUser.photoURL || '',
+              age: '',
+              pin: '',
+              onboardingCompleted: false,
+              tutorialCompleted: false,
+              appData: EMPTY_DATA
+            };
+            // Create default document safely
+            await setDoc(userDocRef, initialUserData);
+
+            setUserName(initialUserData.userName);
+            setProfilePicUrl(initialUserData.profilePicUrl);
             setAge('');
             setPin('');
             setOnboardingCompleted(false);
             setTutorialCompleted(false);
             setData(EMPTY_DATA);
+            hasLoadedFromServerRef.current = true;
           }
         } catch (e) {
           console.error("Erro ao sincronizar dados do Firestore:", e);
@@ -657,6 +749,7 @@ export default function App() {
         setSessionUnlocked(false);
         setData(EMPTY_DATA);
         sessionStorage.removeItem('lifehub_unlocked');
+        hasLoadedFromServerRef.current = false;
       }
     });
     return () => unsubscribe();
@@ -664,10 +757,16 @@ export default function App() {
 
   // 3. Debounced Firestore Cloud Save
   useEffect(() => {
-    if (!user) return;
+    if (!user || !hasLoadedFromServerRef.current) return;
 
     const delayDebounceFn = setTimeout(async () => {
       try {
+        const isSafe = await isSafeToSaveAppData(user.uid, data);
+        if (!isSafe) {
+          console.warn("[Debounced Sync] Gravação cancelada pelo Data Guard para evitar sobrescrever dados do Firestore com estado vazio.");
+          return;
+        }
+
         const userDocRef = doc(db, 'users_data', user.uid);
         await setDoc(userDocRef, {
           userName,
@@ -862,8 +961,9 @@ export default function App() {
 
   // 2. LocalStorage Syncing
   useEffect(() => {
+    if (user && !hasLoadedFromServerRef.current) return;
     localStorage.setItem('meu_painel_de_vida_db', JSON.stringify(data));
-  }, [data]);
+  }, [data, user]);
 
   useEffect(() => {
     localStorage.setItem('meu_painel_de_vida_dark', darkMode.toString());
@@ -1397,7 +1497,11 @@ export default function App() {
   };
 
   const resetToFactoryDefaults = () => {
+    isResettingDataRef.current = true;
     setData(EMPTY_DATA);
+    setTimeout(() => {
+      isResettingDataRef.current = false;
+    }, 3000);
   };
 
   const handleUpdateGymState = (updater: (prev: GymState) => GymState) => {
@@ -1484,6 +1588,7 @@ export default function App() {
   };
 
   const clearAllData = () => {
+    isResettingDataRef.current = true;
     setData({
       shoppingList: [],
       tasks: [],
@@ -1498,6 +1603,9 @@ export default function App() {
       notes: [],
       creativityProjects: []
     });
+    setTimeout(() => {
+      isResettingDataRef.current = false;
+    }, 3000);
   };
 
   const handleLockApp = () => {
