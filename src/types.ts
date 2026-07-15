@@ -34,6 +34,15 @@ export interface StudyHistory {
   note: string;
 }
 
+export interface PersonalContent {
+  id: string;
+  name: string;
+  status: 'Não iniciado' | 'Em andamento' | 'Concluído';
+  date: string; // YYYY-MM-DD
+  notes: string;
+  progress: number; // 0 to 100
+}
+
 export interface StudySubject {
   id: string;
   name: string;
@@ -44,14 +53,30 @@ export interface StudySubject {
   topicsCurrent?: string[];          // O que estou estudando agora (Topic I am studying)
   topicsAlreadyStudied?: string[];   // Tópicos já estudados (Topics I have already studied)
   topicsStudyLater?: string[];       // Tópicos para estudar depois (Topics I will study later)
+  contents?: PersonalContent[];     // Personal studies contents list
 }
 
 export interface SchoolSubject {
   id: string;
   name: string;
-  grade: string; // e.g. "9.0"
-  scheduleTime: string; // e.g. "08:00 - 10:00"
-  scheduleDay: 'Segunda-feira' | 'Terça-feira' | 'Quarta-feira' | 'Quinta-feira' | 'Sexta-feira' | 'Sábado' | 'Domingo';
+  grade?: string; // e.g. "9.0"
+  scheduleTime?: string; // e.g. "08:00 - 10:00"
+  scheduleDay?: 'Segunda-feira' | 'Terça-feira' | 'Quarta-feira' | 'Quinta-feira' | 'Sexta-feira' | 'Sábado' | 'Domingo';
+  
+  // Optional fields for overhauled school sub-tabs:
+  type?: 'grade' | 'timetable' | 'discipline';
+  semester?: string; // '1º Semestre', '2º Semestre', etc.
+  faltas?: number;
+  peso?: number;
+  teacher?: string;
+  room?: string;
+  slot?: string;
+  professor?: string;
+  conteudos?: string;
+  trabalhos?: string;
+  atividades?: string;
+  provas?: string;
+  observacoes?: string;
 }
 
 export interface MediaItem {

@@ -57,7 +57,7 @@ import OverviewDashboard from './components/OverviewDashboard';
 import ShoppingListSection from './components/ShoppingListSection';
 import TasksSection from './components/TasksSection';
 import ScheduleSection from './components/ScheduleSection';
-import StudiesSection from './components/StudiesSection';
+import StudiesSection, { getInitialSchoolSubjects, getInitialStudies } from './components/StudiesSection';
 import MediaSection from './components/MediaSection';
 import MusicSection from './components/MusicSection';
 import BibleSection from './components/BibleSection';
@@ -138,43 +138,190 @@ function getDailyVerse() {
   return VERSES_OF_THE_DAY[index];
 }
 
+const migrateStudiesData = (parsed: any) => {
+  let migrated = false;
+
+  // 1. Migrate school notes, timetable, and disciplines to schoolSubjects if empty
+  if (!parsed.schoolSubjects || parsed.schoolSubjects.length === 0) {
+    const migratedSubjects: any[] = [];
+
+    // Migrate notes
+    const savedNotes = localStorage.getItem('estudos_escola_notas_v1');
+    if (savedNotes) {
+      try {
+        const notesObj = JSON.parse(savedNotes);
+        Object.keys(notesObj).forEach(semester => {
+          const list = notesObj[semester] || [];
+          list.forEach((s: any) => {
+            migratedSubjects.push({
+              id: s.id || `school-migrated-grade-${Date.now()}-${Math.random()}`,
+              name: s.name,
+              grade: s.grade,
+              faltas: s.faltas,
+              peso: s.peso,
+              semester: semester,
+              type: 'grade',
+              scheduleDay: 'Segunda-feira',
+              scheduleTime: ''
+            });
+          });
+        });
+      } catch (e) {
+        console.error("Error parsing local notes", e);
+      }
+    }
+
+    // Migrate timetable
+    const savedTimetable = localStorage.getItem('estudos_escola_horarios_v1');
+    if (savedTimetable) {
+      try {
+        const timetableObj = JSON.parse(savedTimetable);
+        Object.keys(timetableObj).forEach(day => {
+          const slots = timetableObj[day] || {};
+          Object.keys(slots).forEach(slot => {
+            const entry = slots[slot];
+            if (entry) {
+              migratedSubjects.push({
+                id: `school-migrated-tt-${Date.now()}-${Math.random()}`,
+                name: entry.subject,
+                teacher: entry.teacher,
+                scheduleTime: entry.time,
+                room: entry.room,
+                scheduleDay: day,
+                slot: slot,
+                type: 'timetable'
+              });
+            }
+          });
+        });
+      } catch (e) {
+        console.error("Error parsing local timetable", e);
+      }
+    }
+
+    // Migrate discipline logs
+    const savedDisciplines = localStorage.getItem('estudos_disciplinas_v1');
+    if (savedDisciplines) {
+      try {
+        const disciplinesObj = JSON.parse(savedDisciplines);
+        Object.keys(disciplinesObj).forEach(subjectName => {
+          const log = disciplinesObj[subjectName];
+          if (log) {
+            migratedSubjects.push({
+              id: `school-migrated-disc-${Date.now()}-${Math.random()}`,
+              name: subjectName,
+              professor: log.professor,
+              conteudos: log.conteudos,
+              trabalhos: log.trabalhos,
+              atividades: log.atividades,
+              provas: log.provas,
+              observacoes: log.observacoes,
+              type: 'discipline',
+              scheduleDay: 'Segunda-feira',
+              scheduleTime: ''
+            });
+          }
+        });
+      } catch (e) {
+        console.error("Error parsing local disciplines", e);
+      }
+    }
+
+    if (migratedSubjects.length > 0) {
+      parsed.schoolSubjects = migratedSubjects;
+      migrated = true;
+    } else {
+      parsed.schoolSubjects = getInitialSchoolSubjects();
+    }
+  }
+
+  // 2. Migrate personal studies to studies if empty
+  if (!parsed.studies || parsed.studies.length === 0) {
+    const savedPersonal = localStorage.getItem('estudos_pessoais_v1');
+    if (savedPersonal) {
+      try {
+        const personalObj = JSON.parse(savedPersonal);
+        if (Array.isArray(personalObj) && personalObj.length > 0) {
+          parsed.studies = personalObj.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            grade: '',
+            contentsByTab: {},
+            contentsStudied: '',
+            progress: 0,
+            history: [],
+            contents: s.contents || []
+          }));
+          migrated = true;
+        }
+      } catch (e) {
+        console.error("Error parsing local personal studies", e);
+      }
+    }
+
+    if (!parsed.studies || parsed.studies.length === 0) {
+      parsed.studies = getInitialStudies();
+    }
+  }
+
+  // If we migrated, let's delete the old localStorage keys to clean up
+  if (migrated) {
+    localStorage.removeItem('estudos_escola_notas_v1');
+    localStorage.removeItem('estudos_escola_horarios_v1');
+    localStorage.removeItem('estudos_disciplinas_v1');
+    localStorage.removeItem('estudos_pessoais_v1');
+  }
+};
+
 export default function App() {
   // 1. Core Persistent States
   const [data, setData] = useState<PainelData>(() => {
     const saved = localStorage.getItem('meu_painel_de_vida_db');
+    let parsed: any = null;
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        if (!parsed.schoolSubjects) {
-          parsed.schoolSubjects = EMPTY_DATA.schoolSubjects || [];
-        }
-        if (!parsed.calendarMarkedDays) {
-          parsed.calendarMarkedDays = EMPTY_DATA.calendarMarkedDays || [];
-        }
-        if (!parsed.notes) {
-          parsed.notes = EMPTY_DATA.notes || [];
-        }
-        if (!parsed.creativityProjects) {
-          parsed.creativityProjects = EMPTY_DATA.creativityProjects || [];
-        }
-        if (!parsed.gym) {
-          parsed.gym = EMPTY_DATA.gym;
-        }
-        if (!parsed.church) {
-          parsed.church = EMPTY_DATA.church;
-        }
-        if (!parsed.youtube) {
-          parsed.youtube = EMPTY_DATA.youtube;
-        }
-        if (!parsed.catalogs || !parsed.catalogs.songs || parsed.catalogs.songs.length === 0) {
-          parsed.catalogs = DEFAULT_CATALOGS_STATE;
-        }
-        return parsed;
+        parsed = JSON.parse(saved);
       } catch (e) {
         console.error("Erro ao carregar dados do LocalStorage, restaurando padrão.");
       }
     }
-    return EMPTY_DATA;
+
+    if (!parsed) {
+      parsed = { ...EMPTY_DATA };
+    }
+
+    if (!parsed.schoolSubjects) {
+      parsed.schoolSubjects = [];
+    }
+    if (!parsed.studies) {
+      parsed.studies = [];
+    }
+    if (!parsed.calendarMarkedDays) {
+      parsed.calendarMarkedDays = EMPTY_DATA.calendarMarkedDays || [];
+    }
+    if (!parsed.notes) {
+      parsed.notes = EMPTY_DATA.notes || [];
+    }
+    if (!parsed.creativityProjects) {
+      parsed.creativityProjects = EMPTY_DATA.creativityProjects || [];
+    }
+    if (!parsed.gym) {
+      parsed.gym = EMPTY_DATA.gym;
+    }
+    if (!parsed.church) {
+      parsed.church = EMPTY_DATA.church;
+    }
+    if (!parsed.youtube) {
+      parsed.youtube = EMPTY_DATA.youtube;
+    }
+    if (!parsed.catalogs || !parsed.catalogs.songs || parsed.catalogs.songs.length === 0) {
+      parsed.catalogs = DEFAULT_CATALOGS_STATE;
+    }
+
+    // Run studies data migration / fallback initialization
+    migrateStudiesData(parsed);
+
+    return parsed;
   });
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {

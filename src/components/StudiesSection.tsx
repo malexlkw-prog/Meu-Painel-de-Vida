@@ -272,33 +272,185 @@ interface StudiesSectionProps {
   forcedSubTab?: 'school' | 'studies';
 }
 
-export default function StudiesSection({}: StudiesSectionProps) {
+export function getInitialSchoolSubjects(): SchoolSubject[] {
+  const list: SchoolSubject[] = [];
+
+  // Populate schoolNotes (INITIAL_NOTES)
+  Object.keys(INITIAL_NOTES).forEach(semester => {
+    INITIAL_NOTES[semester].forEach(subj => {
+      list.push({
+        id: subj.id,
+        name: subj.name,
+        grade: subj.grade,
+        scheduleDay: 'Segunda-feira',
+        scheduleTime: '',
+        semester,
+        faltas: subj.faltas,
+        peso: subj.peso,
+        type: 'grade'
+      });
+    });
+  });
+
+  // Populate timetable (INITIAL_TIMETABLE)
+  Object.keys(INITIAL_TIMETABLE).forEach(day => {
+    const slots = INITIAL_TIMETABLE[day];
+    Object.keys(slots).forEach(slot => {
+      const entry = slots[slot];
+      list.push({
+        id: `tt-${day}-${slot}`,
+        name: entry.subject,
+        scheduleDay: day as any,
+        scheduleTime: entry.time,
+        teacher: entry.teacher,
+        room: entry.room,
+        slot,
+        type: 'timetable'
+      });
+    });
+  });
+
+  // Populate discipline logs (INITIAL_DISCIPLINES)
+  Object.keys(INITIAL_DISCIPLINES).forEach(subjectName => {
+    const log = INITIAL_DISCIPLINES[subjectName];
+    list.push({
+      id: `disc-${subjectName}`,
+      name: subjectName,
+      scheduleDay: 'Segunda-feira',
+      scheduleTime: '',
+      professor: log.professor,
+      conteudos: log.conteudos,
+      trabalhos: log.trabalhos,
+      atividades: log.atividades,
+      provas: log.provas,
+      observacoes: log.observacoes,
+      type: 'discipline'
+    });
+  });
+
+  return list;
+}
+
+export function getInitialStudies(): StudySubject[] {
+  return INITIAL_PERSONAL_STUDIES.map(s => ({
+    id: s.id,
+    name: s.name,
+    grade: '',
+    contentsStudied: '',
+    progress: 0,
+    history: [],
+    contents: s.contents
+  }));
+}
+
+export default function StudiesSection({
+  studies = [],
+  schoolSubjects = [],
+  onAddSubject,
+  onUpdateSubject,
+  onDeleteSubject,
+  onAddHistory,
+  onDeleteHistory,
+  onAddSchoolSubject,
+  onUpdateSchoolSubject,
+  onDeleteSchoolSubject
+}: StudiesSectionProps) {
   // Main Sub-Tab Selector: Escola (school) | Disciplinas (disciplines) | Estudos (studies)
   const [activeTab, setActiveTab] = useState<'school' | 'disciplines' | 'studies'>('school');
 
   // Secondary sub-tab for Escola: Notas (notas) | Grade de Horários (timetable)
   const [escolaSubTab, setEscolaSubTab] = useState<'notas' | 'timetable'>('notas');
 
-  // Load and save state hooks with local storage backups
-  const [schoolNotes, setSchoolNotes] = useState<SchoolNotesData>(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_NOTES);
-    return saved ? JSON.parse(saved) : INITIAL_NOTES;
-  });
+  // Derive states dynamically from props
+  const schoolNotes = React.useMemo<SchoolNotesData>(() => {
+    const notes: SchoolNotesData = {
+      '1º Semestre': [],
+      '2º Semestre': [],
+      '3º Semestre': [],
+      '4º Semestre': []
+    };
+    
+    const grades = schoolSubjects.filter(s => s.type === 'grade');
+    if (grades.length === 0) {
+      return INITIAL_NOTES;
+    }
+    
+    grades.forEach(s => {
+      const sem = s.semester || '1º Semestre';
+      if (notes[sem]) {
+        notes[sem].push({
+          id: s.id,
+          name: s.name,
+          grade: s.grade || '',
+          faltas: s.faltas || 0,
+          peso: s.peso || 1.0
+        });
+      }
+    });
+    return notes;
+  }, [schoolSubjects]);
 
-  const [timetable, setTimetable] = useState<TimetableData>(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_TIMETABLE);
-    return saved ? JSON.parse(saved) : INITIAL_TIMETABLE;
-  });
+  const timetable = React.useMemo<TimetableData>(() => {
+    const tt: TimetableData = {
+      'Segunda-feira': {},
+      'Terça-feira': {},
+      'Quarta-feira': {},
+      'Quinta-feira': {},
+      'Sexta-feira': {}
+    };
+    
+    const ttItems = schoolSubjects.filter(s => s.type === 'timetable');
+    if (ttItems.length === 0) {
+      return INITIAL_TIMETABLE;
+    }
+    
+    ttItems.forEach(s => {
+      const day = s.scheduleDay;
+      const slot = s.slot;
+      if (day && slot && tt[day]) {
+        tt[day][slot] = {
+          subject: s.name,
+          teacher: s.teacher || '',
+          time: s.scheduleTime || '',
+          room: s.room || ''
+        };
+      }
+    });
+    return tt;
+  }, [schoolSubjects]);
 
-  const [disciplineLogs, setDisciplineLogs] = useState<DisciplineLogMap>(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_DISCIPLINES);
-    return saved ? JSON.parse(saved) : INITIAL_DISCIPLINES;
-  });
+  const disciplineLogs = React.useMemo<DisciplineLogMap>(() => {
+    const logs: DisciplineLogMap = {};
+    const discItems = schoolSubjects.filter(s => s.type === 'discipline');
+    
+    // Merge with INITIAL_DISCIPLINES so fallback values exist
+    Object.keys(INITIAL_DISCIPLINES).forEach(name => {
+      logs[name] = INITIAL_DISCIPLINES[name];
+    });
+    
+    discItems.forEach(s => {
+      logs[s.name] = {
+        professor: s.professor || '',
+        conteudos: s.conteudos || '',
+        trabalhos: s.trabalhos || '',
+        atividades: s.atividades || '',
+        provas: s.provas || '',
+        observacoes: s.observacoes || ''
+      };
+    });
+    return logs;
+  }, [schoolSubjects]);
 
-  const [personalStudies, setPersonalStudies] = useState<PersonalStudySubject[]>(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PERSONAL);
-    return saved ? JSON.parse(saved) : INITIAL_PERSONAL_STUDIES;
-  });
+  const personalStudies = React.useMemo<PersonalStudySubject[]>(() => {
+    if (studies.length === 0) {
+      return INITIAL_PERSONAL_STUDIES;
+    }
+    return studies.map(s => ({
+      id: s.id,
+      name: s.name,
+      contents: s.contents || []
+    }));
+  }, [studies]);
 
   // Active Selected Semester for Notas
   const [selectedSemester, setSelectedSemester] = useState<string>('1º Semestre');
@@ -373,23 +525,6 @@ export default function StudiesSection({}: StudiesSectionProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Save states to local storage on changes
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY_NOTES, JSON.stringify(schoolNotes));
-  }, [schoolNotes]);
-
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY_TIMETABLE, JSON.stringify(timetable));
-  }, [timetable]);
-
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY_DISCIPLINES, JSON.stringify(disciplineLogs));
-  }, [disciplineLogs]);
-
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY_PERSONAL, JSON.stringify(personalStudies));
-  }, [personalStudies]);
-
   // Extract unique school subjects to dynamically feed the Disciplinas tab
   const getUniqueSchoolSubjects = (): string[] => {
     const subjectsSet = new Set<string>();
@@ -450,16 +585,13 @@ export default function StudiesSection({}: StudiesSectionProps) {
   };
 
   const handleDeleteSubject = (semester: string, subjectId: string) => {
-    const subjectToDelete = schoolNotes[semester]?.find(s => s.id === subjectId);
+    const subjectToDelete = schoolSubjects.find(s => s.id === subjectId);
     if (subjectToDelete && confirm(`Tem certeza que deseja excluir a matéria "${subjectToDelete.name}" de todas as avaliações/semestres?`)) {
       const nameToDelete = subjectToDelete.name;
-      setSchoolNotes(prev => {
-        const updated = { ...prev };
-        const semesters = ['1º Semestre', '2º Semestre', '3º Semestre', '4º Semestre'];
-        semesters.forEach(sem => {
-          updated[sem] = (updated[sem] || []).filter(s => s.name.toLowerCase() !== nameToDelete.toLowerCase());
-        });
-        return updated;
+      schoolSubjects.forEach(s => {
+        if (s.type === 'grade' && s.name.toLowerCase() === nameToDelete.toLowerCase()) {
+          onDeleteSchoolSubject(s.id);
+        }
       });
     }
     setOpenDropdownId(null);
@@ -476,61 +608,61 @@ export default function StudiesSection({}: StudiesSectionProps) {
     const nameTrimmed = name.trim();
 
     if (id) {
-      // Editing: we have the old name. Let's find what the name was BEFORE editing
-      const oldSubject = schoolNotes[semester]?.find(s => s.id === id);
-      const oldName = oldSubject ? oldSubject.name : '';
-      
-      setSchoolNotes(prev => {
-        const updated = { ...prev };
-        semesters.forEach(sem => {
-          if (sem === semester) {
-            // In the edited semester, update everything (name, grade, faltas, peso)
-            updated[sem] = (updated[sem] || []).map(s => 
-              s.id === id ? { ...s, name: nameTrimmed, grade, faltas, peso } : s
-            );
-          } else if (oldName) {
-            // In other semesters, rename the subject if it has the old name, keeping its grades/faltas/peso intact!
-            updated[sem] = (updated[sem] || []).map(s => 
-              s.name.toLowerCase() === oldName.toLowerCase() ? { ...s, name: nameTrimmed } : s
-            );
+      const oldRecord = schoolSubjects.find(s => s.id === id);
+      const oldName = oldRecord ? oldRecord.name : '';
+
+      schoolSubjects.forEach(s => {
+        if (s.type === 'grade') {
+          if (s.id === id) {
+            onUpdateSchoolSubject({
+              ...s,
+              name: nameTrimmed,
+              grade,
+              faltas,
+              peso
+            });
+          } else if (oldName && s.name.toLowerCase() === oldName.toLowerCase()) {
+            onUpdateSchoolSubject({
+              ...s,
+              name: nameTrimmed
+            });
           }
-        });
-        return updated;
+        }
       });
     } else {
-      // Adding new: Automatically add to ALL semesters to keep them in sync
-      setSchoolNotes(prev => {
-        const updated = { ...prev };
-        semesters.forEach(sem => {
-          const exists = (updated[sem] || []).some(s => s.name.toLowerCase() === nameTrimmed.toLowerCase());
-          if (!exists) {
-            const newSubj: SchoolGradeSubject = {
-              id: 'subj-' + Date.now() + '-' + sem.replace(/\s+/g, '-'),
-              name: nameTrimmed,
-              grade: sem === semester ? grade : '', // No grade copied for other semesters
-              faltas: sem === semester ? faltas : 0, // No absences copied for other semesters
-              peso: sem === semester ? peso : 1.0
-            };
-            updated[sem] = [...(updated[sem] || []), newSubj];
-          }
-        });
-        return updated;
+      semesters.forEach(sem => {
+        const exists = schoolSubjects.some(
+          s => s.type === 'grade' && s.semester === sem && s.name.toLowerCase() === nameTrimmed.toLowerCase()
+        );
+        if (!exists) {
+          onAddSchoolSubject({
+            name: nameTrimmed,
+            grade: sem === semester ? grade : '',
+            scheduleDay: 'Segunda-feira',
+            scheduleTime: '',
+            semester: sem,
+            faltas: sem === semester ? faltas : 0,
+            peso: sem === semester ? peso : 1.0,
+            type: 'grade'
+          } as any);
+        }
       });
     }
 
-    // Auto create a Discipline log slot if it does not exist
-    if (!disciplineLogs[nameTrimmed]) {
-      setDisciplineLogs(prev => ({
-        ...prev,
-        [nameTrimmed]: {
-          professor: '',
-          conteudos: '',
-          trabalhos: '',
-          atividades: '',
-          provas: '',
-          observacoes: ''
-        }
-      }));
+    const discExists = schoolSubjects.some(s => s.type === 'discipline' && s.name.toLowerCase() === nameTrimmed.toLowerCase());
+    if (!discExists) {
+      onAddSchoolSubject({
+        name: nameTrimmed,
+        scheduleDay: 'Segunda-feira',
+        scheduleTime: '',
+        professor: '',
+        conteudos: '',
+        trabalhos: '',
+        atividades: '',
+        provas: '',
+        observacoes: '',
+        type: 'discipline'
+      } as any);
     }
 
     setShowSubjectModal(false);
@@ -557,14 +689,12 @@ export default function StudiesSection({}: StudiesSectionProps) {
 
   const handleClearSlot = (day: string, slotName: string) => {
     if (confirm(`Limpar horário da ${slotName} de ${day}?`)) {
-      setTimetable(prev => {
-        const nextDay = { ...prev[day] };
-        delete nextDay[slotName];
-        return {
-          ...prev,
-          [day]: nextDay
-        };
-      });
+      const existing = schoolSubjects.find(
+        s => s.type === 'timetable' && s.scheduleDay === day && s.slot === slotName
+      );
+      if (existing) {
+        onDeleteSchoolSubject(existing.id);
+      }
     }
     setOpenDropdownId(null);
   };
@@ -576,18 +706,29 @@ export default function StudiesSection({}: StudiesSectionProps) {
     const { day, slot, subject, teacher, time, room } = timetableModalData;
     if (!subject.trim()) return;
 
-    setTimetable(prev => ({
-      ...prev,
-      [day]: {
-        ...(prev[day] || {}),
-        [slot]: {
-          subject: subject.trim(),
-          teacher: teacher.trim(),
-          time: time.trim(),
-          room: room.trim()
-        }
-      }
-    }));
+    const existing = schoolSubjects.find(
+      s => s.type === 'timetable' && s.scheduleDay === day && s.slot === slot
+    );
+
+    if (existing) {
+      onUpdateSchoolSubject({
+        ...existing,
+        name: subject.trim(),
+        teacher: teacher.trim(),
+        scheduleTime: time.trim(),
+        room: room.trim()
+      });
+    } else {
+      onAddSchoolSubject({
+        name: subject.trim(),
+        scheduleDay: day as any,
+        scheduleTime: time.trim(),
+        teacher: teacher.trim(),
+        room: room.trim(),
+        slot,
+        type: 'timetable'
+      } as any);
+    }
 
     setShowTimetableModal(false);
     setTimetableModalData(null);
@@ -618,17 +759,20 @@ export default function StudiesSection({}: StudiesSectionProps) {
 
   const handleClearDiscipline = (subjectName: string) => {
     if (confirm(`Excluir todos os registros salvos da disciplina "${subjectName}"?`)) {
-      setDisciplineLogs(prev => ({
-        ...prev,
-        [subjectName]: {
+      const existing = schoolSubjects.find(
+        s => s.type === 'discipline' && s.name.toLowerCase() === subjectName.toLowerCase()
+      );
+      if (existing) {
+        onUpdateSchoolSubject({
+          ...existing,
           professor: '',
           conteudos: '',
           trabalhos: '',
           atividades: '',
           provas: '',
           observacoes: ''
-        }
-      }));
+        });
+      }
     }
     setOpenDropdownId(null);
   };
@@ -639,17 +783,34 @@ export default function StudiesSection({}: StudiesSectionProps) {
 
     const { subjectName, professor, conteudos, trabalhos, atividades, provas, observacoes } = disciplineModalData;
 
-    setDisciplineLogs(prev => ({
-      ...prev,
-      [subjectName]: {
+    const existing = schoolSubjects.find(
+      s => s.type === 'discipline' && s.name.toLowerCase() === subjectName.toLowerCase()
+    );
+
+    if (existing) {
+      onUpdateSchoolSubject({
+        ...existing,
         professor: professor.trim(),
         conteudos,
         trabalhos,
         atividades,
         provas,
         observacoes
-      }
-    }));
+      });
+    } else {
+      onAddSchoolSubject({
+        name: subjectName,
+        scheduleDay: 'Segunda-feira',
+        scheduleTime: '',
+        professor: professor.trim(),
+        conteudos,
+        trabalhos,
+        atividades,
+        provas,
+        observacoes,
+        type: 'discipline'
+      } as any);
+    }
 
     setShowDisciplineModal(false);
     setDisciplineModalData(null);
@@ -675,7 +836,7 @@ export default function StudiesSection({}: StudiesSectionProps) {
 
   const handleDeletePersonalSubject = (subjectId: string, subjectName: string) => {
     if (confirm(`Excluir completamente a matéria "${subjectName}" e todos os seus tópicos de estudo pessoal?`)) {
-      setPersonalStudies(prev => prev.filter(s => s.id !== subjectId));
+      onDeleteSubject(subjectId);
     }
     setOpenDropdownId(null);
   };
@@ -688,14 +849,21 @@ export default function StudiesSection({}: StudiesSectionProps) {
     if (!name.trim()) return;
 
     if (id) {
-      setPersonalStudies(prev => prev.map(s => s.id === id ? { ...s, name: name.trim() } : s));
+      const existing = studies.find(s => s.id === id);
+      if (existing) {
+        onUpdateSubject({
+          ...existing,
+          name: name.trim()
+        });
+      }
     } else {
-      const newSubj: PersonalStudySubject = {
-        id: 'p-subj-' + Date.now(),
+      onAddSubject({
         name: name.trim(),
+        grade: '',
+        contentsStudied: '',
+        progress: 0,
         contents: []
-      };
-      setPersonalStudies(prev => [...prev, newSubj]);
+      } as any);
     }
 
     setShowPersonalSubjectModal(false);
@@ -732,15 +900,13 @@ export default function StudiesSection({}: StudiesSectionProps) {
 
   const handleDeletePersonalContent = (subjectId: string, contentId: string) => {
     if (confirm('Deseja realmente remover este tópico de estudo?')) {
-      setPersonalStudies(prev => prev.map(s => {
-        if (s.id === subjectId) {
-          return {
-            ...s,
-            contents: s.contents.filter(c => c.id !== contentId)
-          };
-        }
-        return s;
-      }));
+      const subject = studies.find(s => s.id === subjectId);
+      if (subject) {
+        onUpdateSubject({
+          ...subject,
+          contents: (subject.contents || []).filter(c => c.id !== contentId)
+        });
+      }
     }
     setOpenDropdownId(null);
   };
@@ -752,39 +918,40 @@ export default function StudiesSection({}: StudiesSectionProps) {
     const { id, subjectId, name, status, date, notes, progress } = personalContentModalData;
     if (!name.trim()) return;
 
-    setPersonalStudies(prev => prev.map(s => {
-      if (s.id === subjectId) {
-        if (id) {
-          // Editing
-          return {
-            ...s,
-            contents: s.contents.map(c => c.id === id ? { 
-              ...c, 
-              name: name.trim(), 
-              status, 
-              date, 
-              notes, 
-              progress: status === 'Concluído' ? 100 : status === 'Não iniciado' ? 0 : progress 
-            } : c)
-          };
-        } else {
-          // Adding
-          const newContent: PersonalContent = {
-            id: 'p-cont-' + Date.now(),
-            name: name.trim(),
-            status,
-            date,
-            notes,
-            progress: status === 'Concluído' ? 100 : status === 'Não iniciado' ? 0 : progress
-          };
-          return {
-            ...s,
-            contents: [...s.contents, newContent]
-          };
-        }
-      }
-      return s;
-    }));
+    const subject = studies.find(s => s.id === subjectId);
+    if (!subject) return;
+
+    const currentContents = subject.contents || [];
+
+    if (id) {
+      // Editing
+      const updatedContents = currentContents.map(c => c.id === id ? {
+        ...c,
+        name: name.trim(),
+        status,
+        date,
+        notes,
+        progress: status === 'Concluído' ? 100 : status === 'Não iniciado' ? 0 : progress
+      } : c);
+      onUpdateSubject({
+        ...subject,
+        contents: updatedContents
+      });
+    } else {
+      // Adding
+      const newContent: PersonalContent = {
+        id: 'p-cont-' + Date.now(),
+        name: name.trim(),
+        status,
+        date,
+        notes,
+        progress: status === 'Concluído' ? 100 : status === 'Não iniciado' ? 0 : progress
+      };
+      onUpdateSubject({
+        ...subject,
+        contents: [...currentContents, newContent]
+      });
+    }
 
     setShowPersonalContentModal(false);
     setPersonalContentModalData(null);
