@@ -332,12 +332,24 @@ export default function App() {
   // Firebase Auth states
   const [user, setUser] = useState<any>(null);
   const [loadingAuth, setLoadingAuth] = useState<boolean>(true);
-  const [userName, setUserName] = useState<string>('Marcos');
-  const [profilePicUrl, setProfilePicUrl] = useState<string>('');
-  const [age, setAge] = useState<string>('');
-  const [pin, setPin] = useState<string>('');
-  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(false);
-  const [tutorialCompleted, setTutorialCompleted] = useState<boolean>(false);
+  const [userName, setUserName] = useState<string>(() => {
+    return localStorage.getItem('meu_painel_de_vida_username') || 'Marcos';
+  });
+  const [profilePicUrl, setProfilePicUrl] = useState<string>(() => {
+    return localStorage.getItem('meu_painel_de_vida_profile_pic') || '';
+  });
+  const [age, setAge] = useState<string>(() => {
+    return localStorage.getItem('lifehub_age') || '';
+  });
+  const [pin, setPin] = useState<string>(() => {
+    return localStorage.getItem('lifehub_pin') || localStorage.getItem('meu_painel_de_vida_pin') || '';
+  });
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
+    return localStorage.getItem('lifehub_onboarding_completed') === 'true';
+  });
+  const [tutorialCompleted, setTutorialCompleted] = useState<boolean>(() => {
+    return localStorage.getItem('lifehub_tutorial_completed') === 'true';
+  });
   const [tutorialStepIndex, setTutorialStepIndex] = useState<number>(0);
   const hasLoadedFromServerRef = useRef<boolean>(false);
   const isResettingDataRef = useRef<boolean>(false);
@@ -875,6 +887,28 @@ export default function App() {
           const userDocRef = doc(db, 'users_data', firebaseUser.uid);
           const userDocSnap = await getDoc(userDocRef);
           
+          // Read local storage database state safely to avoid overwriting existing local data
+          const savedDbStr = localStorage.getItem('meu_painel_de_vida_db');
+          let localDb: PainelData | null = null;
+          if (savedDbStr) {
+            try {
+              localDb = JSON.parse(savedDbStr);
+            } catch (e) {
+              console.error("Erro ao analisar localDb no Auth Observer", e);
+            }
+          }
+
+          const hasNoItems = (d: PainelData | null) => {
+            if (!d) return true;
+            const tasksCount = d.tasks ? d.tasks.length : 0;
+            const notesCount = d.notes ? d.notes.length : 0;
+            const shoppingCount = d.shoppingList ? d.shoppingList.length : 0;
+            const scheduleCount = d.schedule ? d.schedule.length : 0;
+            const schoolSubjectsCount = d.schoolSubjects ? d.schoolSubjects.length : 0;
+            const studiesCount = d.studies ? d.studies.length : 0;
+            return (tasksCount + notesCount + shoppingCount + scheduleCount + schoolSubjectsCount + studiesCount) === 0;
+          };
+          
           if (userDocSnap.exists()) {
             const fetchedData = userDocSnap.data();
             setUserName(fetchedData.userName || firebaseUser.displayName || 'Usuário');
@@ -910,7 +944,12 @@ export default function App() {
                 ...fetchedData.appData
               });
             } else {
-              setData(EMPTY_DATA);
+              // If remote appData is missing, preserve local data if it exists, otherwise fall back to EMPTY_DATA
+              if (localDb && !hasNoItems(localDb)) {
+                setData(localDb);
+              } else {
+                setData(EMPTY_DATA);
+              }
             }
             hasLoadedFromServerRef.current = true;
           } else {
@@ -918,11 +957,11 @@ export default function App() {
             const initialUserData = {
               userName: firebaseUser.displayName || 'Usuário',
               profilePicUrl: firebaseUser.photoURL || '',
-              age: '',
-              pin: '',
-              onboardingCompleted: false,
-              tutorialCompleted: false,
-              appData: EMPTY_DATA
+              age: localStorage.getItem('lifehub_age') || '',
+              pin: localStorage.getItem('lifehub_pin') || localStorage.getItem('meu_painel_de_vida_pin') || '',
+              onboardingCompleted: localStorage.getItem('lifehub_onboarding_completed') === 'true',
+              tutorialCompleted: localStorage.getItem('lifehub_tutorial_completed') === 'true',
+              appData: (localDb && !hasNoItems(localDb)) ? localDb : EMPTY_DATA
             };
             // Create default document safely
             console.log("[setDoc] Iniciando gravação de novo usuário");
@@ -932,14 +971,18 @@ export default function App() {
             console.log("[Sanitizer] Auditoria recursiva de campos concluída com sucesso.");
             await setDoc(userDocRef, sanitizedInitialUserData);
             console.log("[setDoc] Novo usuário criado com sucesso.");
-
+ 
             setUserName(initialUserData.userName);
             setProfilePicUrl(initialUserData.profilePicUrl);
-            setAge('');
-            setPin('');
-            setOnboardingCompleted(false);
-            setTutorialCompleted(false);
-            setData(EMPTY_DATA);
+            setAge(initialUserData.age);
+            setPin(initialUserData.pin);
+            setOnboardingCompleted(initialUserData.onboardingCompleted);
+            setTutorialCompleted(initialUserData.tutorialCompleted);
+            if (localDb && !hasNoItems(localDb)) {
+              setData(localDb);
+            } else {
+              setData(EMPTY_DATA);
+            }
             hasLoadedFromServerRef.current = true;
           }
         } catch (e) {
@@ -950,14 +993,15 @@ export default function App() {
       } else {
         setUser(null);
         setLoadingAuth(false);
-        setUserName('Marcos');
-        setProfilePicUrl('');
-        setAge('');
-        setPin('');
-        setOnboardingCompleted(false);
-        setTutorialCompleted(false);
+        setUserName(localStorage.getItem('meu_painel_de_vida_username') || 'Marcos');
+        setProfilePicUrl(localStorage.getItem('meu_painel_de_vida_profile_pic') || '');
+        setAge(localStorage.getItem('lifehub_age') || '');
+        setPin(localStorage.getItem('lifehub_pin') || localStorage.getItem('meu_painel_de_vida_pin') || '');
+        setOnboardingCompleted(localStorage.getItem('lifehub_onboarding_completed') === 'true');
+        setTutorialCompleted(localStorage.getItem('lifehub_tutorial_completed') === 'true');
         setSessionUnlocked(false);
-        setData(EMPTY_DATA);
+        // CRITICAL DATA GUARD: DO NOT overwrite local data with EMPTY_DATA on logout or auth disconnect.
+        // Keeping current data in memory & in state.
         sessionStorage.removeItem('lifehub_unlocked');
         hasLoadedFromServerRef.current = false;
       }
@@ -1188,6 +1232,38 @@ export default function App() {
   // 2. LocalStorage Syncing
   useEffect(() => {
     if (user && !hasLoadedFromServerRef.current) return;
+
+    // Safeguard: do not save EMPTY_DATA unless an explicit reset is happening
+    if (isResettingDataRef.current) {
+      localStorage.setItem('meu_painel_de_vida_db', JSON.stringify(data));
+      return;
+    }
+
+    const hasNoItems = (d: PainelData) => {
+      const tasksCount = d.tasks ? d.tasks.length : 0;
+      const notesCount = d.notes ? d.notes.length : 0;
+      const shoppingCount = d.shoppingList ? d.shoppingList.length : 0;
+      const scheduleCount = d.schedule ? d.schedule.length : 0;
+      const schoolSubjectsCount = d.schoolSubjects ? d.schoolSubjects.length : 0;
+      const studiesCount = d.studies ? d.studies.length : 0;
+      return (tasksCount + notesCount + shoppingCount + scheduleCount + schoolSubjectsCount + studiesCount) === 0;
+    };
+
+    if (hasNoItems(data)) {
+      const stored = localStorage.getItem('meu_painel_de_vida_db');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (!hasNoItems(parsed)) {
+            console.warn("[Data Guard] Impedindo que dados vazios do estado sobrescrevam o cache local do localStorage contendo dados.");
+            return;
+          }
+        } catch (e) {
+          console.error("Erro ao analisar local db no Data Guard", e);
+        }
+      }
+    }
+
     localStorage.setItem('meu_painel_de_vida_db', JSON.stringify(data));
   }, [data, user]);
 
@@ -1207,6 +1283,23 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('meu_painel_de_vida_profile_pic', profilePicUrl);
   }, [profilePicUrl]);
+
+  useEffect(() => {
+    localStorage.setItem('lifehub_onboarding_completed', onboardingCompleted.toString());
+  }, [onboardingCompleted]);
+
+  useEffect(() => {
+    localStorage.setItem('lifehub_tutorial_completed', tutorialCompleted.toString());
+  }, [tutorialCompleted]);
+
+  useEffect(() => {
+    localStorage.setItem('lifehub_age', age);
+  }, [age]);
+
+  useEffect(() => {
+    localStorage.setItem('lifehub_pin', pin);
+    localStorage.setItem('meu_painel_de_vida_pin', pin);
+  }, [pin]);
 
   // Handle clicking outside global search to close results panel
   useEffect(() => {
