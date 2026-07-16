@@ -1821,7 +1821,39 @@ export default function App() {
       return (tasksCount + notesCount + shoppingCount + scheduleCount + schoolSubjectsCount + studiesCount) === 0;
     };
 
-    if (hasNoItems(data)) {
+    let dataToSave = data;
+
+    if (user) {
+      const stored = localStorage.getItem('meu_painel_de_vida_db');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          let merged = { ...data };
+          let mergedAny = false;
+
+          const paths = Object.keys(SUBCOLLECTION_MAP);
+          for (const path of paths) {
+            // Se o módulo NÃO está marcado como carregado do Firestore nesta sessão,
+            // preservamos o valor que já estava salvo no localStorage para não sobrescrevê-lo com vazio
+            if (!loadedModulesRef.current[path]) {
+              const cachedVal = getValueByPath(parsed, path);
+              if (cachedVal !== undefined) {
+                merged = setValueByPath(merged, path, cachedVal);
+                mergedAny = true;
+              }
+            }
+          }
+
+          if (mergedAny) {
+            dataToSave = merged;
+          }
+        } catch (e) {
+          console.error("Erro ao fazer merge inteligente para o localStorage:", e);
+        }
+      }
+    }
+
+    if (hasNoItems(dataToSave)) {
       const stored = localStorage.getItem('meu_painel_de_vida_db');
       if (stored) {
         try {
@@ -1836,7 +1868,7 @@ export default function App() {
       }
     }
 
-    localStorage.setItem('meu_painel_de_vida_db', JSON.stringify(data));
+    localStorage.setItem('meu_painel_de_vida_db', JSON.stringify(dataToSave));
   }, [data, user]);
 
   useEffect(() => {
