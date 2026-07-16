@@ -560,6 +560,7 @@ export interface ChurchSong {
   categories: string[];
   isFavorite: boolean;
   createdAt: string;
+  style?: string; // Estilo/Tipo (e.g., Louvor, Adoração, Outro)
 }
 
 export interface SongRepertoire {

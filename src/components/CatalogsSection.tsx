@@ -171,6 +171,7 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
     youtubeUrl: string;
     notes: string;
     categories: string[];
+    style: string;
   }>({
     name: '',
     artist: '',
@@ -179,7 +180,8 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
     capo: '',
     youtubeUrl: '',
     notes: '',
-    categories: []
+    categories: [],
+    style: 'Louvor'
   });
 
   // Repertoire Form States
@@ -208,6 +210,7 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
     artist: '',
     category: '',
     key: '',
+    style: '',
     onlyFavorites: false
   });
 
@@ -315,13 +318,15 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
       const matchesSearch = !songFilters.search || 
         song.name.toLowerCase().includes(songFilters.search.toLowerCase()) || 
         song.artist.toLowerCase().includes(songFilters.search.toLowerCase()) ||
-        (song.composer && song.composer.toLowerCase().includes(songFilters.search.toLowerCase()));
+        (song.composer && song.composer.toLowerCase().includes(songFilters.search.toLowerCase())) ||
+        (song.style && song.style.toLowerCase().includes(songFilters.search.toLowerCase()));
       const matchesArtist = !songFilters.artist || song.artist === songFilters.artist;
       const matchesCategory = !songFilters.category || song.categories.includes(songFilters.category);
       const matchesKey = !songFilters.key || song.key === songFilters.key;
       const matchesFavorites = !songFilters.onlyFavorites || song.isFavorite;
+      const matchesStyle = !songFilters.style || song.style === songFilters.style;
       
-      return matchesSearch && matchesArtist && matchesCategory && matchesKey && matchesFavorites;
+      return matchesSearch && matchesArtist && matchesCategory && matchesKey && matchesFavorites && matchesStyle;
     });
   }, [state.songs, songFilters]);
 
@@ -329,6 +334,27 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
   const songArtists = useMemo(() => {
     return Array.from(new Set(state.songs.map(s => s.artist))).filter(Boolean);
   }, [state.songs]);
+
+  // Suggested artists combining dynamic list and popular presets
+  const suggestedArtists = useMemo(() => {
+    const presets = [
+      'Harpa Cristã',
+      'Gabriela Rocha',
+      'Fernandinho',
+      'Morada',
+      'Casa Worship',
+      'Kemuel',
+      'Nívea Soares',
+      'Ministério Zoe',
+      'Diante do Trono',
+      'Aline Barros',
+      'Isadora Pompeo',
+      'Preto no Branco',
+      'Alessandro Vilas Boas',
+      'Felipe Valente'
+    ];
+    return Array.from(new Set([...presets, ...songArtists])).sort();
+  }, [songArtists]);
 
   // Filters for custom catalog items
   const filteredCustomItems = useMemo(() => {
@@ -410,7 +436,8 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
           capo: songForm.capo.trim() || undefined,
           youtubeUrl: songForm.youtubeUrl.trim() || undefined,
           notes: songForm.notes.trim() || undefined,
-          categories: songForm.categories
+          categories: songForm.categories,
+          style: songForm.style || 'Louvor'
         };
       } else {
         songs.push({
@@ -424,7 +451,8 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
           notes: songForm.notes.trim() || undefined,
           categories: songForm.categories,
           isFavorite: false,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          style: songForm.style || 'Louvor'
         });
       }
       return { ...prev, songs };
@@ -1000,7 +1028,7 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
                 ) : (
                   <button
                     onClick={() => {
-                      setSongForm({ name: '', artist: '', composer: '', key: '', capo: '', youtubeUrl: '', notes: '', categories: [] });
+                      setSongForm({ name: '', artist: '', composer: '', key: '', capo: '', youtubeUrl: '', notes: '', categories: [], style: 'Louvor' });
                       setActiveModal('add_song');
                     }}
                     className="flex items-center gap-1.5 px-4 py-2.5 bg-violet-650 hover:bg-violet-700 text-white rounded-xl text-xs font-black shadow-sm transition-all"
@@ -1017,10 +1045,10 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
               <div className="space-y-4 text-left">
                 {/* ADVANCED MULTI-CRITERIA FILTERS BAR */}
                 <div className="bg-slate-50/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-4 rounded-3xl space-y-3.5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                     {/* Filter 1: Quick text search */}
                     <div>
-                      <label className="text-[9px] uppercase font-black text-slate-400 block mb-1">Pesquisar por Nome/Compositor</label>
+                      <label className="text-[9px] uppercase font-black text-slate-400 block mb-1">Pesquisar por Nome/Compositor/Estilo</label>
                       <div className="relative">
                         <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
@@ -1063,7 +1091,27 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
                       </select>
                     </div>
 
-                    {/* Filter 4: Musical Key (Tom) */}
+                    {/* Filter 4: Style (Estilo/Momento) */}
+                    <div>
+                      <label className="text-[9px] uppercase font-black text-slate-400 block mb-1">Estilo / Momento</label>
+                      <select
+                        value={songFilters.style}
+                        onChange={(e) => setSongFilters({ ...songFilters, style: e.target.value })}
+                        className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-violet-500 dark:text-white"
+                      >
+                        <option value="">Todos os Estilos</option>
+                        <option value="Louvor">Louvor</option>
+                        <option value="Adoração">Adoração</option>
+                        <option value="Celebração">Celebração</option>
+                        <option value="Abertura">Abertura</option>
+                        <option value="Encerramento">Encerramento</option>
+                        <option value="Ceia">Santa Ceia</option>
+                        <option value="Dízimo/Oferta">Dízimo / Ofertas</option>
+                        <option value="Outro">Outros</option>
+                      </select>
+                    </div>
+
+                    {/* Filter 5: Musical Key (Tom) */}
                     <div>
                       <label className="text-[9px] uppercase font-black text-slate-400 block mb-1">Tom Musical</label>
                       <select
@@ -1082,9 +1130,9 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
                   {/* Reset filters helper indicator */}
                   <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-850 pt-2 text-xs">
                     <span className="text-slate-400 text-[10px] font-semibold">Exibindo {filteredSongs.length} de {state.songs.length} músicas</span>
-                    {(songFilters.search || songFilters.artist || songFilters.category || songFilters.key) && (
+                    {(songFilters.search || songFilters.artist || songFilters.category || songFilters.key || songFilters.style) && (
                       <button
-                        onClick={() => setSongFilters({ search: '', artist: '', category: '', key: '', onlyFavorites: false })}
+                        onClick={() => setSongFilters({ search: '', artist: '', category: '', key: '', style: '', onlyFavorites: false })}
                         className="text-violet-500 hover:text-violet-750 font-bold hover:underline transition-colors cursor-pointer"
                       >
                         Limpar todos os filtros
@@ -1115,7 +1163,22 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
                             }}
                             className="text-left space-y-1 cursor-pointer flex-1"
                           >
-                            <h4 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-violet-500 transition-colors">{song.name}</h4>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-violet-500 transition-colors">{song.name}</h4>
+                              {song.style && (
+                                <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${
+                                  song.style === 'Adoração'
+                                    ? 'bg-violet-50 text-violet-600 border-violet-150 dark:bg-violet-950/50 dark:text-violet-350 dark:border-violet-900/30'
+                                    : song.style === 'Louvor'
+                                    ? 'bg-sky-50 text-sky-600 border-sky-150 dark:bg-sky-950/50 dark:text-sky-350 dark:border-sky-900/30'
+                                    : song.style === 'Celebração'
+                                    ? 'bg-amber-50 text-amber-600 border-amber-150 dark:bg-amber-950/50 dark:text-amber-350 dark:border-amber-900/30'
+                                    : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800'
+                                }`}>
+                                  {song.style}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-xs text-slate-500 font-bold">{song.artist}</p>
                             {song.composer && <p className="text-[10px] text-slate-400">Comp: {song.composer}</p>}
                           </div>
@@ -1139,7 +1202,8 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
                                     capo: song.capo || '',
                                     youtubeUrl: song.youtubeUrl || '',
                                     notes: song.notes || '',
-                                    categories: song.categories
+                                    categories: song.categories,
+                                    style: song.style || 'Louvor'
                                   });
                                   setActiveModal('add_song');
                                 }}
@@ -1767,12 +1831,19 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
                       <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Cantor / Banda / Ministério *</label>
                       <input
                         type="text"
+                        list="artists-suggestions"
                         value={songForm.artist}
                         onChange={(e) => setSongForm({ ...songForm, artist: e.target.value })}
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-3 py-2 text-xs font-bold dark:text-white outline-none focus:border-violet-500"
                         placeholder="Ex: Gabriela Rocha"
                         required
+                        autoComplete="off"
                       />
+                      <datalist id="artists-suggestions">
+                        {suggestedArtists.map(artist => (
+                          <option key={artist} value={artist} />
+                        ))}
+                      </datalist>
                     </div>
 
                     <div>
@@ -1784,6 +1855,24 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-3 py-2 text-xs font-semibold dark:text-white"
                         placeholder="Ex: Felipe Valente"
                       />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Estilo / Momento *</label>
+                      <select
+                        value={songForm.style || 'Louvor'}
+                        onChange={(e) => setSongForm({ ...songForm, style: e.target.value })}
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-3 py-2 text-xs font-bold dark:text-white outline-none focus:border-violet-500"
+                      >
+                        <option value="Louvor">🙌 Louvor</option>
+                        <option value="Adoração">🛐 Adoração</option>
+                        <option value="Celebração">🎉 Celebração</option>
+                        <option value="Abertura">🚪 Abertura</option>
+                        <option value="Encerramento">🚪 Encerramento</option>
+                        <option value="Ceia">🍞 Santa Ceia</option>
+                        <option value="Dízimo/Oferta">🪙 Dízimo / Ofertas</option>
+                        <option value="Outro">🎸 Outros</option>
+                      </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
@@ -2060,7 +2149,22 @@ export default function CatalogsSection({ catalogsState, onUpdateCatalogs }: Cat
                 <div className="space-y-4 text-left">
                   <div className="flex justify-between items-start border-b pb-3 dark:border-slate-850">
                     <div>
-                      <h3 className="text-base font-black text-slate-900 dark:text-white">{selectedSong.name}</h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base font-black text-slate-900 dark:text-white">{selectedSong.name}</h3>
+                        {selectedSong.style && (
+                          <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                            selectedSong.style === 'Adoração'
+                              ? 'bg-violet-50 text-violet-600 border-violet-150 dark:bg-violet-950/50 dark:text-violet-350 dark:border-violet-900/30'
+                              : selectedSong.style === 'Louvor'
+                              ? 'bg-sky-50 text-sky-600 border-sky-150 dark:bg-sky-950/50 dark:text-sky-350 dark:border-sky-900/30'
+                              : selectedSong.style === 'Celebração'
+                              ? 'bg-amber-50 text-amber-600 border-amber-150 dark:bg-amber-950/50 dark:text-amber-350 dark:border-amber-900/30'
+                              : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800'
+                          }`}>
+                            {selectedSong.style}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-500 font-extrabold">{selectedSong.artist}</p>
                     </div>
                     <button

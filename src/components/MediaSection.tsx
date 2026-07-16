@@ -40,6 +40,61 @@ export default function MediaSection({ media, onAdd, onUpdate, onDelete, default
   const [genre, setGenre] = useState('');
   const [franchise, setFranchise] = useState('');
   const [platform, setPlatform] = useState('');
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+
+  // Global paste handler for images when form is open
+  React.useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      if (!showForm && !editingItem) return;
+      const items = e.clipboardData?.items;
+      if (items) {
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type.indexOf("image") !== -1) {
+            const file = items[i].getAsFile();
+            if (file) {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                  setImageUrl(reader.result);
+                }
+              };
+              reader.readAsDataURL(file);
+              break;
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => {
+      window.removeEventListener('paste', handleGlobalPaste);
+    };
+  }, [showForm, editingItem]);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingFile(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDraggingFile(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setImageUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Seasons and Episodes tracking State
   const [seasonsCount, setSeasonsCount] = useState<number>(0);
@@ -431,41 +486,53 @@ export default function MediaSection({ media, onAdd, onUpdate, onDelete, default
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase font-sans">Imagem de Capa</label>
-                  <div className="flex items-center gap-3 font-sans">
-                    <label className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 rounded-lg cursor-pointer text-xs font-semibold transition-all">
-                      <Upload size={14} className="text-emerald-500" />
-                      <span>Carregar Capa</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              if (typeof reader.result === 'string') {
-                                setImageUrl(reader.result);
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                    {imageUrl && (
-                      <div className="relative group">
-                        <img src={imageUrl} alt="Capa" className="h-10 w-10 object-cover rounded border border-slate-200 dark:border-slate-800" />
-                        <button
-                          type="button"
-                          onClick={() => setImageUrl('')}
-                          className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full p-0.5 hover:bg-rose-600 transition-colors"
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    )}
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase font-sans">Imagem de Capa (Arraste ou Cole Ctrl+V)</label>
+                  <div 
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-3 transition-all ${
+                      isDraggingFile 
+                        ? 'border-emerald-500 bg-emerald-500/10' 
+                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-750 bg-slate-50/50 dark:bg-slate-950/20'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 w-full justify-center">
+                      <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 rounded-lg cursor-pointer text-[11px] font-semibold transition-all">
+                        <Upload size={12} className="text-emerald-500" />
+                        <span>Carregar Capa</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                if (typeof reader.result === 'string') {
+                                  setImageUrl(reader.result);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">ou solte / cole aqui</span>
+                      {imageUrl && (
+                        <div className="relative group ml-auto">
+                          <img src={imageUrl} alt="Capa" className="h-10 w-10 object-cover rounded border border-slate-200 dark:border-slate-800" />
+                          <button
+                            type="button"
+                            onClick={() => setImageUrl('')}
+                            className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full p-0.5 hover:bg-rose-600 transition-colors"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
