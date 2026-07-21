@@ -415,6 +415,9 @@ const setValueByPath = (obj: any, path: string, value: any): any => {
 };
 
 const getPathsNeededForCurrentView = (tab: string, orgSub: string, finSub: string, studiesSub: string, entSub: string): string[] => {
+  if (tab === 'dashboard') {
+    return ['tasks', 'finance', 'reminders', 'queroComprar.items', 'queroComprar.people'];
+  }
   if (tab === 'organizer') {
     if (orgSub === 'tasks') return ['tasks'];
     if (orgSub === 'schedule') return ['schedule'];
@@ -1328,55 +1331,50 @@ export default function App() {
               console.log("[Auth] Usuário já está na versão v2. Carregando configurações e metadados rápidos...");
               const appConfigs = fetchedData.appConfigs || {};
               
+              const baseData = localDb || data || EMPTY_DATA;
               const initialV2State = {
-                ...EMPTY_DATA,
+                ...baseData,
                 music: {
-                  ...EMPTY_DATA.music,
-                  currentVibe: appConfigs.music?.currentVibe || '',
-                  vibePhase: appConfigs.music?.vibePhase || ''
+                  ...baseData.music,
+                  currentVibe: appConfigs.music?.currentVibe || baseData.music?.currentVibe || '',
+                  vibePhase: appConfigs.music?.vibePhase || baseData.music?.vibePhase || ''
                 },
                 bible: {
-                  ...EMPTY_DATA.bible,
-                  currentBook: appConfigs.bible?.currentBook || 'Gênesis',
-                  plan: appConfigs.bible?.plan || 'sequential',
-                  bookProgress: appConfigs.bible?.bookProgress || {}
+                  ...baseData.bible,
+                  currentBook: appConfigs.bible?.currentBook || baseData.bible?.currentBook || 'Gênesis',
+                  plan: appConfigs.bible?.plan || baseData.bible?.plan || 'sequential',
+                  bookProgress: appConfigs.bible?.bookProgress || baseData.bible?.bookProgress || {}
                 },
                 gym: {
-                  ...EMPTY_DATA.gym,
-                  hoursTrainedTotal: appConfigs.gym?.hoursTrainedTotal || 0
+                  ...baseData.gym,
+                  hoursTrainedTotal: appConfigs.gym?.hoursTrainedTotal ?? baseData.gym?.hoursTrainedTotal ?? 0
                 },
                 church: {
-                  ...EMPTY_DATA.church,
-                  bibleReadingStreak: appConfigs.church?.bibleReadingStreak || 0,
-                  cultsAttendedCount: appConfigs.church?.cultsAttendedCount || 0
+                  ...baseData.church,
+                  bibleReadingStreak: appConfigs.church?.bibleReadingStreak ?? baseData.church?.bibleReadingStreak ?? 0,
+                  cultsAttendedCount: appConfigs.church?.cultsAttendedCount ?? baseData.church?.cultsAttendedCount ?? 0
                 },
                 youtube: {
-                  ...EMPTY_DATA.youtube,
-                  apiKey: appConfigs.youtube?.apiKey || ''
+                  ...baseData.youtube,
+                  apiKey: appConfigs.youtube?.apiKey || baseData.youtube?.apiKey || ''
                 },
                 queroComprar: {
-                  ...EMPTY_DATA.queroComprar,
-                  customCategories: appConfigs.queroComprar?.customCategories || [],
-                  customCategoriesList: appConfigs.queroComprar?.customCategoriesList || [],
-                  customSubCategories: appConfigs.queroComprar?.customSubCategories || {},
-                  deletedCategories: appConfigs.queroComprar?.deletedCategories || [],
-                  deletedSubCategories: appConfigs.queroComprar?.deletedSubCategories || {}
+                  ...baseData.queroComprar,
+                  customCategories: appConfigs.queroComprar?.customCategories || baseData.queroComprar?.customCategories || [],
+                  customCategoriesList: appConfigs.queroComprar?.customCategoriesList || baseData.queroComprar?.customCategoriesList || [],
+                  customSubCategories: appConfigs.queroComprar?.customSubCategories || baseData.queroComprar?.customSubCategories || {},
+                  deletedCategories: appConfigs.queroComprar?.deletedCategories || baseData.queroComprar?.deletedCategories || [],
+                  deletedSubCategories: appConfigs.queroComprar?.deletedSubCategories || baseData.queroComprar?.deletedSubCategories || {}
                 },
                 catalogs: {
-                  ...EMPTY_DATA.catalogs,
-                  songCategories: appConfigs.catalogs?.songCategories || []
+                  ...baseData.catalogs,
+                  songCategories: appConfigs.catalogs?.songCategories || baseData.catalogs?.songCategories || []
                 }
               };
               
               setData(initialV2State);
               loadedModulesRef.current = {};
               hasLoadedFromServerRef.current = true;
-
-              // Force-trigger lazy load for current view immediately
-              const initialPaths = getPathsNeededForCurrentView(activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab);
-              if (initialPaths.length > 0) {
-                await loadSubcollectionData(firebaseUser.uid, initialPaths);
-              }
             } else {
               // Legacy User - Trigger automatic background migration to subcollections!
               console.log("[Auth] Usuário legado detectado (v1). Iniciando migração incremental idempotente...");
@@ -1440,7 +1438,7 @@ export default function App() {
       }
     });
     return () => unsubscribe();
-  }, [activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab]);
+  }, []);
 
   // 3. Debounced Firestore Cloud Save with Delta/Incremental Syncing
   useEffect(() => {
