@@ -542,6 +542,7 @@ export default function App() {
   });
   const [tutorialStepIndex, setTutorialStepIndex] = useState<number>(0);
   const hasLoadedFromServerRef = useRef<boolean>(false);
+  const [hasLoadedFromServer, setHasLoadedFromServer] = useState<boolean>(false);
   const isResettingDataRef = useRef<boolean>(false);
 
   // New states and refs for Modular Firestore Architecture
@@ -1381,11 +1382,13 @@ export default function App() {
               setData(initialV2State);
               loadedModulesRef.current = {};
               hasLoadedFromServerRef.current = true;
+              setHasLoadedFromServer(true);
             } else {
               // Legacy User - Trigger automatic background migration to subcollections!
               console.log("[Auth] Usuário legado detectado (v1). Iniciando migração incremental idempotente...");
               const legacyAppData = fetchedData.appData || (localDb && !hasNoItems(localDb) ? localDb : EMPTY_DATA);
               hasLoadedFromServerRef.current = true;
+              setHasLoadedFromServer(true);
               await runIdempotentMigration(firebaseUser.uid, legacyAppData);
             }
           } else {
@@ -1417,6 +1420,7 @@ export default function App() {
             setData(EMPTY_DATA);
             loadedModulesRef.current = {};
             hasLoadedFromServerRef.current = true;
+            setHasLoadedFromServer(true);
 
             // If the user has offline offline data in localDb, migrate it!
             if (localDb && !hasNoItems(localDb)) {
@@ -1441,6 +1445,7 @@ export default function App() {
         setSessionUnlocked(false);
         sessionStorage.removeItem('lifehub_unlocked');
         hasLoadedFromServerRef.current = false;
+        setHasLoadedFromServer(false);
       }
     });
     return () => unsubscribe();
@@ -1448,7 +1453,7 @@ export default function App() {
 
   // 3. Debounced Firestore Cloud Save with Delta/Incremental Syncing
   useEffect(() => {
-    if (!user || !hasLoadedFromServerRef.current || isMigrating) {
+    if (!user || !hasLoadedFromServer || isMigrating) {
       return;
     }
 
@@ -1623,18 +1628,18 @@ export default function App() {
     }, 1200);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [data, userName, profilePicUrl, age, pin, onboardingCompleted, tutorialCompleted, user, isMigrating]);
+  }, [data, userName, profilePicUrl, age, pin, onboardingCompleted, tutorialCompleted, user, isMigrating, hasLoadedFromServer]);
 
   // 4. On-Demand Lazy Loading on View Change
   useEffect(() => {
-    if (!user || !hasLoadedFromServerRef.current || isMigrating) return;
+    if (!user || !hasLoadedFromServer || isMigrating) return;
     
     const paths = getPathsNeededForCurrentView(activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab);
     if (paths.length > 0) {
       console.log("[On-Demand Lazy Load] Chamar loadSubcollectionData com caminhos:", paths);
       loadSubcollectionData(user.uid, paths);
     }
-  }, [activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab, user, isMigrating]);
+  }, [activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab, user, isMigrating, hasLoadedFromServer]);
 
   // Sync state changes dynamically from custom events (instant reactivity)
   useEffect(() => {
@@ -1811,7 +1816,7 @@ export default function App() {
 
   // 2. LocalStorage Syncing
   useEffect(() => {
-    if (user && !hasLoadedFromServerRef.current) return;
+    if (user && !hasLoadedFromServer) return;
 
     // Safeguard: do not save EMPTY_DATA unless an explicit reset is happening
     if (isResettingDataRef.current) {
@@ -1877,7 +1882,7 @@ export default function App() {
     }
 
     localStorage.setItem('meu_painel_de_vida_db', JSON.stringify(dataToSave));
-  }, [data, user]);
+  }, [data, user, hasLoadedFromServer]);
 
   useEffect(() => {
     localStorage.setItem('meu_painel_de_vida_dark', darkMode.toString());
