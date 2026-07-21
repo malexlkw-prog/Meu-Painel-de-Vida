@@ -628,6 +628,7 @@ export default function App() {
         'calendarMarkedDays'
       ];
 
+      console.log(`[Data Guard] Antes de calcular itens locais. localData.tasks.length =`, (localData as any).tasks?.length);
       let localTotalItems = 0;
       let remoteTotalItems = 0;
 
@@ -967,6 +968,7 @@ export default function App() {
       // Let's reload everything we need for the current view
       loadedModulesRef.current = {};
       const initialPaths = getPathsNeededForCurrentView(activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab);
+      console.log("[Migration] Chamar loadSubcollectionData com caminhos:", initialPaths);
       await loadSubcollectionData(uid, initialPaths);
     } catch (err) {
       console.error("[Migration] Erro catastrófico na migração de dados:", err);
@@ -980,6 +982,7 @@ export default function App() {
   // LAZY LOADING ON DEMAND
   // =========================================
   const loadSubcollectionData = async (uid: string, paths: string[]) => {
+    console.log("[loadSubcollectionData Start] uid:", uid, "paths:", paths, "loadedModulesRef.current:", { ...loadedModulesRef.current });
     if (!uid || paths.length === 0) return;
     
     // Filter out paths that are already loaded
@@ -997,7 +1000,9 @@ export default function App() {
         if (!subcoll) continue;
 
         console.log(`[LazyLoad] Buscando subcoleção: '${subcoll}'`);
+        console.log(`[LazyLoad Exec] Imediatamente antes do getDocs() para a subcoleção: '${subcoll}', path: '${path}'`);
         const qSnap = await getDocs(collection(db, 'users_data', uid, subcoll));
+        console.log(`[LazyLoad Exec] Imediatamente após o getDocs() para '${subcoll}'. Tamanho (size):`, qSnap.size);
         
         // Detect if this path corresponds to a key-value calendar object or a regular array list
         if (path === 'gym.calendar') {
@@ -1015,6 +1020,7 @@ export default function App() {
         }
 
         loadedModulesRef.current[path] = true;
+        console.log(`[LazyLoad Success] loadedModulesRef.current atualizado:`, { ...loadedModulesRef.current });
         console.log(`[LazyLoad] '${subcoll}' carregado com sucesso (${qSnap.size} documentos).`);
       }
 
@@ -1448,6 +1454,7 @@ export default function App() {
 
     const delayDebounceFn = setTimeout(async () => {
       try {
+        console.log("[Debounced Sync Start] loadedModulesRef.current:", { ...loadedModulesRef.current });
         const isSafe = await isSafeToSaveAppData(user.uid, data);
         if (!isSafe) {
           console.warn("[Debounced Sync] Gravação cancelada pelo Data Guard.");
@@ -1467,6 +1474,7 @@ export default function App() {
         let deleteCount = 0;
 
         for (const path of paths) {
+          console.log(`[Debounced Sync Loop] Verificando se o path '${path}' está carregado. loadedModulesRef.current['${path}']:`, loadedModulesRef.current[path]);
           if (!loadedModulesRef.current[path]) {
             continue;
           }
@@ -1606,6 +1614,7 @@ export default function App() {
           databaseVersion: 'v2'
         }, { merge: true });
 
+        console.log(`[Debounced Sync Pre-Complete] writeCount: ${writeCount}, deleteCount: ${deleteCount}, paths processed:`, paths);
         lastSavedDataRef.current = JSON.parse(JSON.stringify(data));
         console.log(`[Debounced Sync] Sincronização incremental concluída. Salvos: ${writeCount}, Removidos: ${deleteCount}`);
       } catch (err) {
@@ -1622,6 +1631,7 @@ export default function App() {
     
     const paths = getPathsNeededForCurrentView(activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab);
     if (paths.length > 0) {
+      console.log("[On-Demand Lazy Load] Chamar loadSubcollectionData com caminhos:", paths);
       loadSubcollectionData(user.uid, paths);
     }
   }, [activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab, user, isMigrating]);
