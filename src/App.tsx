@@ -609,6 +609,14 @@ export default function App() {
       }
 
       const remoteData = docSnap.data();
+
+      // Se o usuário já está na v2, as subcoleções individuais cuidam da segurança (via loadedModulesRef).
+      // O appData no documento principal da v1 está obsoleto/estático.
+      if (remoteData?.databaseVersion === 'v2') {
+        console.log("[Data Guard] Usuário já está na v2. O appData remoto é obsoleto. Sincronização via subcoleções autorizada.");
+        return true;
+      }
+
       const remoteAppData = remoteData?.appData;
 
       if (!remoteAppData) {
