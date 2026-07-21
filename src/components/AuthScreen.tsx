@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, Eye, EyeOff, User, ArrowLeft, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { auth, googleProvider } from '../lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, updateProfile } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 
 interface AuthScreenProps {
   onSuccess: () => void;
@@ -19,6 +19,7 @@ export default function AuthScreen({ onSuccess, onVisitorMode }: AuthScreenProps
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const resetForm = () => {
@@ -27,6 +28,7 @@ export default function AuthScreen({ onSuccess, onVisitorMode }: AuthScreenProps
     setPassword('');
     setConfirmPassword('');
     setErrorMsg(null);
+    setSuccessMsg(null);
     setLoading(false);
   };
 
@@ -37,20 +39,56 @@ export default function AuthScreen({ onSuccess, onVisitorMode }: AuthScreenProps
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
+    const enteredEmail = email.trim().toLowerCase();
+    const enteredPassword = password.trim();
+
+    if (!enteredEmail || !enteredPassword) {
       setErrorMsg('Preencha todos os campos!');
       return;
     }
+
+    // Enforce exclusive access restriction
+    if (enteredEmail !== 'malexlkw@gmail.com') {
+      setErrorMsg('Acesso Restrito: Este painel é de uso exclusivo de Marcos (malexlkw@gmail.com).');
+      return;
+    }
+
     setErrorMsg(null);
     setLoading(true);
 
+    // Map m2010 to a valid Firebase 6+ characters password under the hood
+    const resolvedPassword = enteredPassword === 'm2010' ? 'm2010_secure' : enteredPassword;
+
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      await signInWithEmailAndPassword(auth, enteredEmail, resolvedPassword);
       onSuccess();
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        setErrorMsg('E-mail ou senha inválidos.');
+      
+      // Auto-signup override if account doesn't exist yet for you
+      if (
+        err.code === 'auth/user-not-found' || 
+        err.code === 'auth/wrong-password' || 
+        err.code === 'auth/invalid-credential'
+      ) {
+        if (enteredPassword === 'm2010') {
+          console.log("[Auth] Conta ainda não criada. Tentando registro automático seguro...");
+          try {
+            const userCredential = await createUserWithEmailAndPassword(auth, enteredEmail, resolvedPassword);
+            await updateProfile(userCredential.user, {
+              displayName: 'Marcos'
+            });
+            onSuccess();
+            return;
+          } catch (signUpErr: any) {
+            console.error("[Auth] Erro no registro automático:", signUpErr);
+            if (signUpErr.code === 'auth/email-already-in-use') {
+              setErrorMsg('Marcos, sua conta já existe (possivelmente criada via Google). Por favor, use o botão branco "Conectar com Google" abaixo para entrar instantaneamente sem precisar de senha!');
+              return;
+            }
+          }
+        }
+        setErrorMsg('Senha incorreta para Marcos ou conta associada ao Google. Use o botão "Conectar com Google" abaixo para entrar com segurança.');
       } else if (err.code === 'auth/invalid-email') {
         setErrorMsg('O endereço de e-mail é inválido.');
       } else {
@@ -63,12 +101,24 @@ export default function AuthScreen({ onSuccess, onVisitorMode }: AuthScreenProps
 
   const handleEmailRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !password.trim()) {
+    const enteredEmail = email.trim().toLowerCase();
+    const enteredPassword = password.trim();
+
+    if (!name.trim() || !enteredEmail || !enteredPassword) {
       setErrorMsg('Preencha todos os campos!');
       return;
     }
-    if (password.length < 6) {
-      setErrorMsg('A senha precisa ter pelo menos 6 caracteres.');
+
+    // Enforce exclusive access restriction
+    if (enteredEmail !== 'malexlkw@gmail.com') {
+      setErrorMsg('Acesso Restrito: Este painel é de uso exclusivo de Marcos (malexlkw@gmail.com).');
+      return;
+    }
+
+    const resolvedPassword = enteredPassword === 'm2010' ? 'm2010_secure' : enteredPassword;
+
+    if (resolvedPassword.length < 6) {
+      setErrorMsg('A senha precisa ter pelo menos 6 caracteres (m2010 é aceito automaticamente).');
       return;
     }
     if (password !== confirmPassword) {
@@ -79,7 +129,7 @@ export default function AuthScreen({ onSuccess, onVisitorMode }: AuthScreenProps
     setLoading(true);
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const userCredential = await createUserWithEmailAndPassword(auth, enteredEmail, resolvedPassword);
       await updateProfile(userCredential.user, {
         displayName: name.trim()
       });
@@ -98,12 +148,44 @@ export default function AuthScreen({ onSuccess, onVisitorMode }: AuthScreenProps
     }
   };
 
+  const handleForgotPassword = async () => {
+    const enteredEmail = email.trim().toLowerCase();
+    if (!enteredEmail) {
+      setErrorMsg('Digite seu endereço de e-mail no campo acima primeiro!');
+      return;
+    }
+    if (enteredEmail !== 'malexlkw@gmail.com') {
+      setErrorMsg('Acesso Restrito: Redefinição de senha permitida apenas para o proprietário.');
+      return;
+    }
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, enteredEmail);
+      setSuccessMsg('E-mail de redefinição enviado com sucesso! Verifique sua caixa de entrada.');
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg('Erro ao enviar e-mail de redefinição: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoogleLogin = async () => {
     setErrorMsg(null);
     setLoading(true);
     try {
-      await signInWithPopup(auth, googleProvider);
-      onSuccess();
+      const result = await signInWithPopup(auth, googleProvider);
+      const loggedEmail = result.user.email?.toLowerCase();
+      
+      if (loggedEmail !== 'malexlkw@gmail.com') {
+        // Enforce restriction
+        await auth.signOut();
+        setErrorMsg('Acesso Restrito: Este painel é de uso exclusivo de Marcos (malexlkw@gmail.com).');
+      } else {
+        onSuccess();
+      }
     } catch (err: any) {
       console.error(err);
       if (err.code !== 'auth/popup-closed-by-user') {
@@ -225,6 +307,13 @@ export default function AuthScreen({ onSuccess, onVisitorMode }: AuthScreenProps
                 </div>
               )}
 
+              {successMsg && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-semibold flex items-center gap-2">
+                  <Sparkles size={14} className="shrink-0" />
+                  <span>{successMsg}</span>
+                </div>
+              )}
+
               {/* Form */}
               <form onSubmit={handleEmailLogin} className="space-y-4 text-left">
                 <div className="space-y-1">
@@ -244,7 +333,16 @@ export default function AuthScreen({ onSuccess, onVisitorMode }: AuthScreenProps
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Senha de Acesso</label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Senha de Acesso</label>
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      className="text-[10px] font-bold text-indigo-400 hover:underline cursor-pointer"
+                    >
+                      Esqueceu a senha?
+                    </button>
+                  </div>
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}

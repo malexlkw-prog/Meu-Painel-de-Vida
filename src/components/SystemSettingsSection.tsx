@@ -153,16 +153,64 @@ export default function SystemSettingsSection({
     triggerSuccess('Perfil salvo com sucesso!');
   };
 
+  const compressImage = (base64Str: string, maxWidth = 150, maxHeight = 150, quality = 0.6): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(base64Str);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed);
+      };
+      img.onerror = () => {
+        resolve(base64Str);
+      };
+    });
+  };
+
   const handleProfilePicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         if (typeof reader.result === 'string') {
-          localStorage.setItem('meu_painel_de_vida_profile_pic', reader.result);
-          if (setProfilePicUrl) setProfilePicUrl(reader.result);
-          window.dispatchEvent(new Event('lifehub_profile_update'));
-          triggerSuccess('Foto de perfil atualizada!');
+          try {
+            const compressed = await compressImage(reader.result, 150, 150, 0.6);
+            localStorage.setItem('meu_painel_de_vida_profile_pic', compressed);
+            if (setProfilePicUrl) setProfilePicUrl(compressed);
+            window.dispatchEvent(new Event('lifehub_profile_update'));
+            triggerSuccess('Foto de perfil atualizada!');
+          } catch (err) {
+            console.error("Erro ao comprimir imagem:", err);
+            localStorage.setItem('meu_painel_de_vida_profile_pic', reader.result);
+            if (setProfilePicUrl) setProfilePicUrl(reader.result);
+            window.dispatchEvent(new Event('lifehub_profile_update'));
+            triggerSuccess('Foto de perfil atualizada!');
+          }
         }
       };
       reader.readAsDataURL(file);

@@ -337,6 +337,45 @@ const isBase64Image = (str: any): boolean => {
   return str.startsWith('data:image/') && str.includes(';base64,');
 };
 
+const compressImage = (base64Str: string, maxWidth = 350, maxHeight = 350, quality = 0.5): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(base64Str);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressed = canvas.toDataURL('image/jpeg', quality);
+      resolve(compressed);
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
+};
+
 const generateUuid = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
@@ -377,7 +416,9 @@ const sanitizeAndUploadImages = async (uid: string, obj: any, moduleName: string
   if (obj === null || obj === undefined) return obj;
   
   if (isBase64Image(obj)) {
-    return await uploadBase64ToStorage(uid, obj, moduleName, itemId);
+    console.log(`[Sanitizer] Comprimindo imagem grande para o mÃ³dulo ${moduleName}...`);
+    const compressed = await compressImage(obj, 350, 350, 0.5);
+    return await uploadBase64ToStorage(uid, compressed, moduleName, itemId);
   }
   
   if (Array.isArray(obj)) {
@@ -1034,17 +1075,54 @@ export default function App() {
         
         // Detect if this path corresponds to a key-value calendar object or a regular array list
         if (path === 'gym.calendar') {
+          const localCal = getValueByPath(updatedData, path) || {};
           const calendarObj: any = {};
           qSnap.forEach(subdoc => {
             calendarObj[subdoc.id] = subdoc.data();
           });
-          updatedData = setValueByPath(updatedData, path, calendarObj);
+
+          // Merge local and remote
+          const mergedCal = { ...localCal, ...calendarObj };
+          
+          const localKeys = Object.keys(localCal);
+          const firestoreKeys = new Set(Object.keys(calendarObj));
+          const unsyncedKeys = localKeys.filter(k => !firestoreKeys.has(k));
+
+          if (unsyncedKeys.length > 0) {
+            console.log(`[LazyLoad Sync] Encontradas ${unsyncedKeys.length} chaves locais nÃ£o sincronizadas para 'gym.calendar'. Sincronizando...`);
+            for (const key of unsyncedKeys) {
+              const subdocRef = doc(db, 'users_data', uid, subcoll, key);
+              sanitizeAndUploadImages(uid, localCal[key], subcoll, key).then(sanitizedItem => {
+                const firestoreReady = sanitizeFirestoreData(sanitizedItem);
+                setDoc(subdocRef, firestoreReady);
+              }).catch(err => console.error("Erro ao sincronizar chave mesclada:", err));
+            }
+          }
+          updatedData = setValueByPath(updatedData, path, mergedCal);
         } else {
+          const localList = getValueByPath(updatedData, path) || [];
           const arrayList: any[] = [];
           qSnap.forEach(subdoc => {
             arrayList.push({ id: subdoc.id, ...subdoc.data() });
           });
-          updatedData = setValueByPath(updatedData, path, arrayList);
+
+          const firestoreIds = new Set(arrayList.map(item => item.id));
+          const unsyncedLocalItems = localList.filter((item: any) => item && item.id && !firestoreIds.has(item.id));
+
+          if (unsyncedLocalItems.length > 0) {
+            console.log(`[LazyLoad Sync] Encontrados ${unsyncedLocalItems.length} itens locais nÃ£o sincronizados para '${subcoll}'. Sincronizando...`);
+            for (const item of unsyncedLocalItems) {
+              const itemId = item.id;
+              const subdocRef = doc(db, 'users_data', uid, subcoll, itemId);
+              sanitizeAndUploadImages(uid, item, subcoll, itemId).then(sanitizedItem => {
+                const firestoreReady = sanitizeFirestoreData(sanitizedItem);
+                setDoc(subdocRef, firestoreReady);
+              }).catch(err => console.error("Erro ao sincronizar item mesclado:", err));
+            }
+          }
+
+          const mergedList = [...arrayList, ...unsyncedLocalItems];
+          updatedData = setValueByPath(updatedData, path, mergedList);
         }
 
         loadedModulesRef.current[path] = true;
@@ -1083,9 +1161,15 @@ export default function App() {
           console.log("Objeto enviado:", data);
           console.log(JSON.stringify(data, null, 2));
           
+          let compressedProfilePicUrl = profilePicUrl;
+          if (isBase64Image(profilePicUrl)) {
+            console.log("[Metadata] Comprimindo foto de perfil base64 para gravaÃ§Ã£o imediata...");
+            compressedProfilePicUrl = await compressImage(profilePicUrl, 250, 250, 0.5);
+          }
+
           const fullDocData = {
             userName,
-            profilePicUrl,
+            profilePicUrl: compressedProfilePicUrl,
             age,
             pin,
             onboardingCompleted,
@@ -1313,6 +1397,19 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        const emailLower = firebaseUser.email?.toLowerCase();
+        if (emailLower !== 'malexlkw@gmail.com') {
+          console.warn("[Auth Security] Rejeitando acesso para o e-mail:", emailLower);
+          try {
+            await auth.signOut();
+          } catch (e) {
+            console.error(e);
+          }
+          setUser(null);
+          setLoadingAuth(false);
+          return;
+        }
+
         setUser(firebaseUser);
         try {
           const userDocRef = doc(db, 'users_data', firebaseUser.uid);
@@ -1633,10 +1730,16 @@ export default function App() {
           photosCount
         };
 
+        let compressedProfilePicUrl = profilePicUrl;
+        if (isBase64Image(profilePicUrl)) {
+          console.log("[Metadata Sync] Comprimindo foto de perfil base64 antes do upload periÃ³dico...");
+          compressedProfilePicUrl = await compressImage(profilePicUrl, 250, 250, 0.5);
+        }
+
         console.log("[Debounced Sync] Sincronizando metadados raiz...");
         await setDoc(userDocRef, {
           userName,
-          profilePicUrl,
+          profilePicUrl: compressedProfilePicUrl,
           age,
           pin,
           onboardingCompleted,
@@ -3273,7 +3376,7 @@ export default function App() {
               <ArrowLeft size={13} className="text-slate-500 group-hover:text-slate-755 dark:group-hover:text-white transition-colors" />
               <span>{activeEntSubTab === 'home' ? 'Voltar ao Dashboard' : 'Voltar Ã s OpÃ§Ãµes'}</span>
             </button>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white text-center flex-1 md:absolute md:left-1/2 md:-translate-x-1/2">ðŸŽ¬ {getTabLabel('entertainment', 'Central de Entretenimento')}</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white text-center flex-1 md:absolute md:left-1/2 md:-translate-x-1/2">í ¼í¾¬ {getTabLabel('entertainment', 'Central de Entretenimento')}</h1>
           </div>
         </div>
 
