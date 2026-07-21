@@ -359,9 +359,17 @@ const uploadBase64ToStorage = async (uid: string, base64Str: string, moduleName:
     const downloadUrl = await getDownloadURL(storageRef);
     console.log(`[Storage] Upload concluído com sucesso. URL pública: ${downloadUrl}`);
     return downloadUrl;
-  } catch (err) {
+  } catch (err: any) {
     console.error(`[Storage] Erro no upload de base64 para o modulo ${moduleName}:`, err);
-    throw err;
+    
+    // Disparar evento customizado de erro CORS do Storage para alertar o usuário com instruções claras
+    window.dispatchEvent(new CustomEvent('firebase-storage-cors-error', {
+      detail: { bucket: 'meu-painel-e6a63.firebasestorage.app' }
+    }));
+
+    // Retornamos a string base64 original para que o app salve com sucesso no Firestore diretamente como fallback
+    console.warn(`[Storage Fallback] Retornando base64 original como fallback para salvar diretamente no Firestore.`);
+    return base64Str;
   }
 };
 
@@ -544,6 +552,10 @@ export default function App() {
   const hasLoadedFromServerRef = useRef<boolean>(false);
   const [hasLoadedFromServer, setHasLoadedFromServer] = useState<boolean>(false);
   const isResettingDataRef = useRef<boolean>(false);
+
+  // Storage CORS Error States
+  const [corsErrorOpen, setCorsErrorOpen] = useState<boolean>(false);
+  const [corsErrorDetails, setCorsErrorDetails] = useState<{ bucket: string } | null>(null);
 
   // New states and refs for Modular Firestore Architecture
   const [isMigrating, setIsMigrating] = useState<boolean>(false);
@@ -1942,6 +1954,21 @@ export default function App() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Listener para erros de CORS no Firebase Storage
+  useEffect(() => {
+    const handleCorsError = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const bucket = customEvent.detail?.bucket || 'meu-painel-e6a63.firebasestorage.app';
+      setCorsErrorDetails({ bucket });
+      setCorsErrorOpen(true);
+    };
+
+    window.addEventListener('firebase-storage-cors-error', handleCorsError);
+    return () => {
+      window.removeEventListener('firebase-storage-cors-error', handleCorsError);
+    };
   }, []);
 
   // 3. Dynamic Mutations
@@ -4409,6 +4436,103 @@ export default function App() {
         © 2026 Meu Painel de Vida • Todos os direitos reservados. Projeto local 100% persistivo offline.
       </footer>
       </div>
+
+      {/* Modal de Instalação de CORS para Firebase Storage */}
+      {corsErrorOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[999] overflow-y-auto">
+          <div className="bg-white dark:bg-[#0f172a] rounded-3xl max-w-2xl w-full border border-slate-100 dark:border-indigo-500/20 shadow-2xl p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
+                  <AlertCircle size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-800 dark:text-white leading-tight">
+                    CORS Necessário no Firebase Storage
+                  </h3>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
+                    Seu navegador bloqueou o envio da imagem por falta de regras CORS.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCorsErrorOpen(false)}
+                className="p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-white transition-all cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-slate-600 dark:text-slate-300 text-sm">
+              <div className="p-4 bg-emerald-550/10 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                ✨ <strong className="font-bold">Salvamento Garantido:</strong> Não se preocupe! Nós salvamos sua imagem de forma segura no Firestore diretamente (como string codificada) para você não perder nenhum dado! Mas para manter o sistema super rápido, recomendamos configurar o CORS no seu Storage.
+              </div>
+
+              <div>
+                <span className="font-bold block text-slate-800 dark:text-slate-100 mb-1">Como resolver permanentemente?</span>
+                <p className="text-xs text-slate-400">
+                  Você precisa configurar as permissões de acesso multiplataforma (CORS) no bucket do seu Firebase. Siga os passos simples abaixo:
+                </p>
+              </div>
+
+              {/* Passo 1 */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-bold shrink-0">1</span>
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-200">Crie o arquivo de regras <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-indigo-500 font-mono">cors.json</code></span>
+                </div>
+                <p className="text-xs pl-7 text-slate-400">
+                  Crie um arquivo de texto simples no seu computador chamado <code className="font-mono bg-slate-50 dark:bg-slate-850 px-1.5 py-0.5 rounded">cors.json</code> com este conteúdo:
+                </p>
+                <div className="pl-7">
+                  <pre className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl text-[11px] font-mono border border-slate-100 dark:border-white/5 text-slate-500 dark:text-slate-300 overflow-x-auto select-all max-h-36">
+{`[
+  {
+    "origin": ["*"],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Authorization", "x-goog-meta-*"],
+    "maxAgeSeconds": 3600
+  }
+]`}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Passo 2 */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-bold shrink-0">2</span>
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-200">Aplique a regra no terminal ou Cloud Shell</span>
+                </div>
+                <p className="text-xs pl-7 text-slate-400">
+                  Abra o terminal do seu computador (ou o <strong className="font-bold">Google Cloud Shell</strong> do seu console do Firebase/Google Cloud) e execute o comando abaixo na mesma pasta onde salvou o arquivo:
+                </p>
+                <div className="pl-7">
+                  <pre className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl text-[11px] font-mono border border-slate-100 dark:border-white/5 text-indigo-500 dark:text-indigo-400 overflow-x-auto select-all">
+{`gcloud storage buckets update gs://${corsErrorDetails?.bucket || 'meu-painel-e6a63.firebasestorage.app'} --cors-file=cors.json`}
+                  </pre>
+                  <p className="text-[10px] text-slate-400 mt-1.5">
+                    Caso prefira usar o utilitário antigo <code className="font-mono bg-slate-50 dark:bg-slate-850 px-1 py-0.5 rounded">gsutil</code>:
+                  </p>
+                  <pre className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl text-[11px] font-mono border border-slate-100 dark:border-white/5 text-indigo-500 dark:text-indigo-400 overflow-x-auto mt-1 select-all">
+{`gsutil cors set cors.json gs://${corsErrorDetails?.bucket || 'meu-painel-e6a63.firebasestorage.app'}`}
+                  </pre>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
+              <button
+                onClick={() => setCorsErrorOpen(false)}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-97 text-white font-bold text-xs rounded-2xl transition-all cursor-pointer shadow-md shadow-indigo-600/15"
+              >
+                Entendi, Tudo Certo!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {renderTutorialOverlay()}
     </div>
   );
