@@ -6,9 +6,10 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithP
 
 interface AuthScreenProps {
   onSuccess: () => void;
+  onVisitorMode: () => void;
 }
 
-export default function AuthScreen({ onSuccess }: AuthScreenProps) {
+export default function AuthScreen({ onSuccess, onVisitorMode }: AuthScreenProps) {
   const [authMode, setAuthMode] = useState<'welcome' | 'login' | 'register'>('welcome');
   
   // Form states
@@ -175,6 +176,21 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
                   className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all border border-white/5 active:scale-99 cursor-pointer"
                 >
                   Criar Conta
+                </button>
+
+                <div className="py-1 flex items-center justify-center gap-2">
+                  <div className="h-px bg-white/5 flex-1" />
+                  <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">ou</span>
+                  <div className="h-px bg-white/5 flex-1" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onVisitorMode}
+                  className="w-full py-3 bg-slate-800/40 hover:bg-slate-800/70 text-indigo-300 hover:text-indigo-200 border border-indigo-500/10 hover:border-indigo-500/35 font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all active:scale-99 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Eye size={13} />
+                  <span>Entrar como Visitante</span>
                 </button>
               </div>
             </motion.div>

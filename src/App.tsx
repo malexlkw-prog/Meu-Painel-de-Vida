@@ -985,6 +985,13 @@ export default function App() {
   const loadSubcollectionData = async (uid: string, paths: string[]) => {
     console.log("[loadSubcollectionData Start] uid:", uid, "paths:", paths, "loadedModulesRef.current:", { ...loadedModulesRef.current });
     if (!uid || paths.length === 0) return;
+
+    if (uid === 'visitor') {
+      paths.forEach(p => {
+        loadedModulesRef.current[p] = true;
+      });
+      return;
+    }
     
     // Filter out paths that are already loaded
     const pathsToLoad = paths.filter(p => !loadedModulesRef.current[p]);
@@ -1046,7 +1053,7 @@ export default function App() {
 
   const handleGetLatestSiteData = async () => {
     // 1. Immediately write any pending local changes to Firestore if the user is authenticated
-    if (user) {
+    if (user && !user.isVisitor) {
       try {
         const isSafe = await isSafeToSaveAppData(user.uid, data);
         if (isSafe) {
@@ -1089,7 +1096,7 @@ export default function App() {
     let latestTutorial = tutorialCompleted;
     let latestProfilePic = profilePicUrl;
 
-    if (user) {
+    if (user && !user.isVisitor) {
       try {
         const userDocRef = doc(db, 'users_data', user.uid);
         const userDocSnap = await getDoc(userDocRef);
@@ -1453,7 +1460,7 @@ export default function App() {
 
   // 3. Debounced Firestore Cloud Save with Delta/Incremental Syncing
   useEffect(() => {
-    if (!user || !hasLoadedFromServer || isMigrating) {
+    if (!user || !hasLoadedFromServer || isMigrating || user.isVisitor) {
       return;
     }
 
@@ -2550,11 +2557,30 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
+    if (user?.isVisitor) {
+      setUser(null);
+      setHasLoadedFromServer(false);
+      return;
+    }
     try {
       await signOut(auth);
     } catch (err) {
       console.error("Erro ao deslogar:", err);
     }
+  };
+
+  const handleEnterAsVisitor = () => {
+    setUser({
+      uid: 'visitor',
+      email: 'visitante@paineldevida.com',
+      displayName: 'Visitante',
+      isVisitor: true
+    });
+    setUserName('Visitante');
+    setOnboardingCompleted(true);
+    setTutorialCompleted(true);
+    setSessionUnlocked(true);
+    setHasLoadedFromServer(true);
   };
 
   const handleRestartOnboarding = () => {
@@ -2758,7 +2784,12 @@ export default function App() {
 
   // 2. Auth State Gate (User must log in or sign up first)
   if (!user) {
-    return <AuthScreen onSuccess={() => setActiveTab('dashboard')} />;
+    return (
+      <AuthScreen 
+        onSuccess={() => setActiveTab('dashboard')} 
+        onVisitorMode={handleEnterAsVisitor} 
+      />
+    );
   }
 
   // 3. Onboarding Wizard Gate (Trigger for brand new users)
@@ -3356,6 +3387,26 @@ export default function App() {
   return (
     <div className="min-h-screen font-sans antialiased text-slate-850 dark:text-slate-100 transition-colors duration-300 bg-slate-50 dark:bg-[#070b19] flex flex-col relative overflow-hidden">
       
+      {/* Visitor Mode Banner Notice */}
+      {user?.isVisitor && (
+        <div className="bg-amber-600 dark:bg-amber-700/95 text-white text-xs font-semibold py-2 px-4 shadow-sm z-50 relative select-none border-b border-amber-500/30">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left w-full">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">⚠️</span>
+              <span>
+                Você está no <strong className="font-bold">Modo Visitante (Apenas Visualização)</strong>. Suas alterações serão salvas temporariamente no seu navegador, mas não serão sincronizadas na nuvem.
+              </span>
+            </div>
+            <button 
+              onClick={handleSignOut}
+              className="px-3 py-1 bg-white/15 hover:bg-white/25 active:scale-95 transition-all text-white border border-white/25 rounded-md text-[10px] uppercase font-black cursor-pointer shrink-0"
+            >
+              Criar Conta / Sair
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Dynamic Module Loading Indicator */}
       {loadingModuleData && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-2.5 bg-indigo-600/95 backdrop-blur-md text-white rounded-2xl shadow-xl border border-indigo-500/50 text-xs font-semibold animate-bounce">
@@ -4300,7 +4351,7 @@ export default function App() {
                   onRestartTutorial={async () => {
                     setTutorialCompleted(false);
                     setTutorialStepIndex(0);
-                    if (user) {
+                    if (user && !user.isVisitor) {
                       try {
                         const userDocRef = doc(db, 'users_data', user.uid);
                         console.log("[setDoc] Iniciando gravação de reinício do tutorial");
