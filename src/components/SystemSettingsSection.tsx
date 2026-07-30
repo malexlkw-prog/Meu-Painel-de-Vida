@@ -64,7 +64,7 @@ export default function SystemSettingsSection({
   onRestartTutorial
 }: SystemSettingsSectionProps) {
   // Navigation internal tab state (instead of duplication)
-  const [activeTab, setActiveTab] = useState<'profile' | 'tabs' | 'theme' | 'preferences' | 'security' | 'backup'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'tabs' | 'theme' | 'preferences' | 'backup'>('profile');
   
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -416,16 +416,6 @@ export default function SystemSettingsSection({
           }`}
         >
           <Bell size={14} /> <span>⚙️ Preferências</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('security')} 
-          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'security' 
-              ? 'bg-indigo-600 text-white shadow-md' 
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-          }`}
-        >
-          <Lock size={14} /> <span>🔒 Segurança</span>
         </button>
         <button 
           onClick={() => setActiveTab('backup')} 

@@ -79,22 +79,10 @@ import GallerySection from './components/GallerySection';
 import WorldCupSection from './components/WorldCupSection';
 import CustomizationDrawer from './components/CustomizationDrawer';
 import CatalogsSection, { DEFAULT_CATALOGS_STATE } from './components/CatalogsSection';
-import OnboardingWizard from './components/OnboardingWizard';
-import AuthScreen from './components/AuthScreen';
 import { getAllPhotos, getAlbums } from './utils/galleryDB';
 
 // Firebase imports
-import { auth, db, googleProvider, storage } from './lib/firebase';
-import { 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  signInWithPopup, 
-  updateProfile,
-  reauthenticateWithCredential,
-  EmailAuthProvider
-} from 'firebase/auth';
+import { db, storage } from './lib/firebase';
 import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -380,7 +368,7 @@ const generateUuid = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
 
-const uploadBase64ToStorage = async (uid: string, base64Str: string, moduleName: string, itemId: string): Promise<string> => {
+const uploadBase64ToStorage = async (base64Str: string, moduleName: string, itemId: string): Promise<string> => {
   try {
     const mimeMatch = base64Str.match(/^data:(image\/[a-zA-Z0-9.-]+);base64,/);
     let mimeType = 'image/jpeg';
@@ -390,7 +378,7 @@ const uploadBase64ToStorage = async (uid: string, base64Str: string, moduleName:
       extension = mimeType.split('/')[1] || 'jpg';
     }
     
-    const path = `users/${uid}/${moduleName}/${itemId || generateUuid()}_${Date.now()}.${extension}`;
+    const path = `painel_photos/main/${moduleName}/${itemId || generateUuid()}_${Date.now()}.${extension}`;
     console.log(`[Storage] Iniciando upload de imagem para: ${path}`);
     const storageRef = ref(storage, path);
     
@@ -400,29 +388,21 @@ const uploadBase64ToStorage = async (uid: string, base64Str: string, moduleName:
     return downloadUrl;
   } catch (err: any) {
     console.error(`[Storage] Erro no upload de base64 para o modulo ${moduleName}:`, err);
-    
-    // Disparar evento customizado de erro CORS do Storage para alertar o usuário com instruções claras
-    window.dispatchEvent(new CustomEvent('firebase-storage-cors-error', {
-      detail: { bucket: 'meu-painel-e6a63.firebasestorage.app' }
-    }));
-
-    // Retornamos a string base64 original para que o app salve com sucesso no Firestore diretamente como fallback
-    console.warn(`[Storage Fallback] Retornando base64 original como fallback para salvar diretamente no Firestore.`);
     return base64Str;
   }
 };
 
-const sanitizeAndUploadImages = async (uid: string, obj: any, moduleName: string, itemId: string): Promise<any> => {
+const sanitizeAndUploadImages = async (obj: any, moduleName: string, itemId: string): Promise<any> => {
   if (obj === null || obj === undefined) return obj;
   
   if (isBase64Image(obj)) {
     console.log(`[Sanitizer] Comprimindo imagem grande para o módulo ${moduleName}...`);
     const compressed = await compressImage(obj, 350, 350, 0.5);
-    return await uploadBase64ToStorage(uid, compressed, moduleName, itemId);
+    return await uploadBase64ToStorage(compressed, moduleName, itemId);
   }
   
   if (Array.isArray(obj)) {
-    const promises = obj.map((item, index) => sanitizeAndUploadImages(uid, item, moduleName, `${itemId}_arr_${index}`));
+    const promises = obj.map((item, index) => sanitizeAndUploadImages(item, moduleName, `${itemId}_arr_${index}`));
     return await Promise.all(promises);
   }
   
@@ -431,7 +411,7 @@ const sanitizeAndUploadImages = async (uid: string, obj: any, moduleName: string
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
         const value = obj[key];
-        sanitizedObj[key] = await sanitizeAndUploadImages(uid, value, moduleName, itemId || key);
+        sanitizedObj[key] = await sanitizeAndUploadImages(value, moduleName, itemId || key);
       }
     }
     return sanitizedObj;
@@ -568,27 +548,14 @@ export default function App() {
     return saved ? saved === 'true' : false;
   });
 
-  // Firebase Auth states
-  const [user, setUser] = useState<any>(null);
-  const [loadingAuth, setLoadingAuth] = useState<boolean>(true);
+  // Single Owner States
   const [userName, setUserName] = useState<string>(() => {
     return localStorage.getItem('meu_painel_de_vida_username') || 'Marcos';
   });
   const [profilePicUrl, setProfilePicUrl] = useState<string>(() => {
     return localStorage.getItem('meu_painel_de_vida_profile_pic') || '';
   });
-  const [age, setAge] = useState<string>(() => {
-    return localStorage.getItem('lifehub_age') || '';
-  });
-  const [pin, setPin] = useState<string>(() => {
-    return localStorage.getItem('lifehub_pin') || localStorage.getItem('meu_painel_de_vida_pin') || '';
-  });
-  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
-    return localStorage.getItem('lifehub_onboarding_completed') === 'true';
-  });
-  const [tutorialCompleted, setTutorialCompleted] = useState<boolean>(() => {
-    return localStorage.getItem('lifehub_tutorial_completed') === 'true';
-  });
+  const [tutorialCompleted, setTutorialCompleted] = useState<boolean>(true);
   const [tutorialStepIndex, setTutorialStepIndex] = useState<number>(0);
   const hasLoadedFromServerRef = useRef<boolean>(false);
   const [hasLoadedFromServer, setHasLoadedFromServer] = useState<boolean>(false);
@@ -598,9 +565,7 @@ export default function App() {
   const [corsErrorOpen, setCorsErrorOpen] = useState<boolean>(false);
   const [corsErrorDetails, setCorsErrorDetails] = useState<{ bucket: string } | null>(null);
 
-  // New states and refs for Modular Firestore Architecture
-  const [isMigrating, setIsMigrating] = useState<boolean>(false);
-  const [migrationProgress, setMigrationProgress] = useState<string>('');
+  // States and refs for Firestore Architecture
   const [loadingModuleData, setLoadingModuleData] = useState<boolean>(false);
   const loadedModulesRef = useRef<{ [key: string]: boolean }>({});
   const lastSavedDataRef = useRef<PainelData | null>(null);
@@ -635,100 +600,15 @@ export default function App() {
     return obj;
   };
 
-  const isSafeToSaveAppData = async (userId: string, localData: PainelData): Promise<boolean> => {
-    console.log("[Data Guard] Iniciando verificação de segurança para salvar appData...");
-    console.log("[Data Guard] ID do Usuário:", userId);
-    console.log("[Data Guard] isResettingDataRef.current:", isResettingDataRef.current);
-    console.log("[Data Guard] hasLoadedFromServerRef.current:", hasLoadedFromServerRef.current);
-
+  const isSafeToSaveAppData = async (localData: PainelData): Promise<boolean> => {
     if (isResettingDataRef.current) {
-      console.log("[Data Guard] Reset de dados local em andamento. Ignorando verificações adicionais.");
       return true;
     }
-
     if (!hasLoadedFromServerRef.current) {
-      console.warn("[Data Guard] Abortando escrita: Carregamento inicial ainda não terminou.");
       return false;
     }
-
-    try {
-      const userDocRef = doc(db, 'users_data', userId);
-      console.log("[Data Guard] Lendo documento remoto do Firestore antes de validar...");
-      const docSnap = await getDoc(userDocRef);
-      
-      if (!docSnap.exists()) {
-        console.log("[Data Guard] Documento não existe no Firestore. Novo usuário detectado. Permitindo gravação.");
-        return true;
-      }
-
-      const remoteData = docSnap.data();
-
-      // Se o usuário já está na v2, as subcoleções individuais cuidam da segurança (via loadedModulesRef).
-      // O appData no documento principal da v1 está obsoleto/estático.
-      if (remoteData?.databaseVersion === 'v2') {
-        console.log("[Data Guard] Usuário já está na v2. O appData remoto é obsoleto. Sincronização via subcoleções autorizada.");
-        return true;
-      }
-
-      const remoteAppData = remoteData?.appData;
-
-      if (!remoteAppData) {
-        console.log("[Data Guard] Documento remoto existe mas não contém appData. Permitindo gravação.");
-        return true;
-      }
-
-      const listsToCheck = [
-        'shoppingList',
-        'tasks',
-        'schedule',
-        'studies',
-        'media',
-        'reminders',
-        'finance',
-        'notes',
-        'creativityProjects',
-        'calendarMarkedDays'
-      ];
-
-      console.log(`[Data Guard] Antes de calcular itens locais. localData.tasks.length =`, (localData as any).tasks?.length);
-      let localTotalItems = 0;
-      let remoteTotalItems = 0;
-
-      for (const key of listsToCheck) {
-        // Skip check if the list has not been loaded yet (meaning it is empty locally because of lazy loading, not because it was deleted)
-        if (!loadedModulesRef.current[key]) {
-          continue;
-        }
-
-        const localList = (localData as any)[key];
-        const remoteList = remoteAppData[key];
-
-        if (Array.isArray(localList)) {
-          localTotalItems += localList.length;
-        }
-        if (Array.isArray(remoteList)) {
-          remoteTotalItems += remoteList.length;
-        }
-      }
-
-      console.log(`[Data Guard] Estatísticas: Itens locais = ${localTotalItems}, Itens remotos = ${remoteTotalItems}`);
-
-      if (remoteTotalItems > 0 && localTotalItems === 0) {
-        console.error(`[Data Guard] ABORTADO: O estado local está vazio, mas o Firestore remoto contém ${remoteTotalItems} itens. Tentativa de sobrescrever dados com objeto vazio impedida.`);
-        return false;
-      }
-
-      console.log("[Data Guard] Validação concluída. Permitindo gravação no Firestore.");
-      return true;
-    } catch (e) {
-      console.error("[Data Guard] Erro ao validar segurança de gravação do Firestore:", e);
-      return false;
-    }
+    return true;
   };
-
-  const [sessionUnlocked, setSessionUnlocked] = useState<boolean>(() => {
-    return sessionStorage.getItem('lifehub_unlocked') === 'true';
-  });
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [activeOrgSubTab, setActiveOrgSubTab] = useState<'home' | 'tasks' | 'schedule' | 'calendar' | 'reminders' | 'notes' | 'creativity'>('home');
@@ -856,13 +736,7 @@ export default function App() {
       // Structured modular context properties
       profile: {
         userName,
-        profilePicUrl: profilePicUrl ? "Definida" : "Não definida",
-        age,
-        pin: pin ? "Definido" : "Não definido",
-        user: user ? { uid: user.uid, email: user.email } : null,
-        onboardingCompleted,
-        tutorialCompleted,
-        sessionUnlocked
+        profilePicUrl: profilePicUrl ? "Definida" : "Não definida"
       },
       dashboard: {
         activeTab,
@@ -906,160 +780,16 @@ export default function App() {
   };
 
   // =========================================
-  // AUTOMATIC IDEMPOTENT MIGRATION
-  // =========================================
-  const runIdempotentMigration = async (uid: string, legacyAppData: any) => {
-    if (isMigrating) return;
-    setIsMigrating(true);
-    setMigrationProgress("Iniciando migração segura dos seus dados...");
-    console.log("[Migration] Iniciando processo de migração idempotente para o usuário:", uid);
-
-    try {
-      // 1. Upload configs/preferences to the main users_data document under appConfigs
-      const appConfigs = {
-        music: {
-          currentVibe: legacyAppData.music?.currentVibe || '',
-          vibePhase: legacyAppData.music?.vibePhase || ''
-        },
-        bible: {
-          currentBook: legacyAppData.bible?.currentBook || 'Gênesis',
-          plan: legacyAppData.bible?.plan || 'sequential',
-          bookProgress: legacyAppData.bible?.bookProgress || {}
-        },
-        gym: {
-          hoursTrainedTotal: legacyAppData.gym?.hoursTrainedTotal || 0
-        },
-        church: {
-          bibleReadingStreak: legacyAppData.church?.bibleReadingStreak || 0,
-          cultsAttendedCount: legacyAppData.church?.cultsAttendedCount || 0
-        },
-        youtube: {
-          apiKey: legacyAppData.youtube?.apiKey || ''
-        },
-        queroComprar: {
-          customCategories: legacyAppData.queroComprar?.customCategories || [],
-          customCategoriesList: legacyAppData.queroComprar?.customCategoriesList || [],
-          customSubCategories: legacyAppData.queroComprar?.customSubCategories || {},
-          deletedCategories: legacyAppData.queroComprar?.deletedCategories || [],
-          deletedSubCategories: legacyAppData.queroComprar?.deletedSubCategories || {}
-        },
-        catalogs: {
-          songCategories: legacyAppData.catalogs?.songCategories || []
-        }
-      };
-
-      console.log("[Migration] Atualizando configurações e metadados no documento raiz...");
-      const userDocRef = doc(db, 'users_data', uid);
-      await setDoc(userDocRef, {
-        appConfigs,
-        databaseVersion: 'v2',
-        migrationStatus: 'in_progress'
-      }, { merge: true });
-
-      // 2. Migrate each list into its separate subcollection
-      const paths = Object.keys(SUBCOLLECTION_MAP);
-      let migratedCount = 0;
-
-      for (let i = 0; i < paths.length; i++) {
-        const path = paths[i];
-        const subcoll = SUBCOLLECTION_MAP[path];
-        const rawValue = getValueByPath(legacyAppData, path);
-
-        if (!rawValue) {
-          console.log(`[Migration] [${path}] Vazio ou inexistente, pulando.`);
-          continue;
-        }
-
-        setMigrationProgress(`Migrando módulo ${i + 1} de ${paths.length}: ${subcoll}...`);
-        console.log(`[Migration] [${path}] Iniciando migração para subcoleção '${subcoll}'`);
-
-        if (Array.isArray(rawValue)) {
-          // Migrate list of items
-          for (let index = 0; index < rawValue.length; index++) {
-            const item = rawValue[index];
-            const itemId = item.id || `item_${index}`;
-            const subdocRef = doc(db, 'users_data', uid, subcoll, itemId);
-
-            // Idempotency: Check if already migrated
-            const snap = await getDoc(subdocRef);
-            if (snap.exists()) {
-              console.log(`[Migration] [${path}] Item ${itemId} já existe na subcoleção, pulando para garantir idempotência.`);
-              continue;
-            }
-
-            // Sanitize images & upload Base64 to Storage
-            const sanitizedItem = await sanitizeAndUploadImages(uid, item, subcoll, itemId);
-            const firestoreReady = sanitizeFirestoreData(sanitizedItem);
-            
-            await setDoc(subdocRef, firestoreReady);
-            migratedCount++;
-          }
-        } else if (typeof rawValue === 'object') {
-          // Key-Value objects like gym.calendar
-          const keys = Object.keys(rawValue);
-          for (const key of keys) {
-            const item = rawValue[key];
-            const subdocRef = doc(db, 'users_data', uid, subcoll, key);
-
-            const snap = await getDoc(subdocRef);
-            if (snap.exists()) {
-              console.log(`[Migration] [${path}] Chave ${key} já existe na subcoleção, pulando.`);
-              continue;
-            }
-
-            const sanitizedItem = await sanitizeAndUploadImages(uid, item, subcoll, key);
-            const firestoreReady = sanitizeFirestoreData(sanitizedItem);
-
-            await setDoc(subdocRef, firestoreReady);
-            migratedCount++;
-          }
-        }
-        console.log(`[Migration] [${path}] Concluído com sucesso.`);
-      }
-
-      // 3. Mark migration as fully completed in Firestore
-      console.log("[Migration] Todos os documentos foram criados e validados.");
-      await setDoc(userDocRef, {
-        migrationStatus: 'completed',
-        databaseVersion: 'v2'
-      }, { merge: true });
-
-      setMigrationProgress(`Migração concluída com sucesso! ${migratedCount} itens migrados para subcoleções independentes.`);
-      console.log(`[Migration] Sucesso total! ${migratedCount} documentos migrados com segurança.`);
-      
-      // Let's reload everything we need for the current view
-      loadedModulesRef.current = {};
-      const initialPaths = getPathsNeededForCurrentView(activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab);
-      console.log("[Migration] Chamar loadSubcollectionData com caminhos:", initialPaths);
-      await loadSubcollectionData(uid, initialPaths);
-    } catch (err) {
-      console.error("[Migration] Erro catastrófico na migração de dados:", err);
-      setMigrationProgress("Erro na migração. Recarregue a página para tentar novamente com segurança.");
-    } finally {
-      setIsMigrating(false);
-    }
-  };
-
-  // =========================================
   // LAZY LOADING ON DEMAND
   // =========================================
-  const loadSubcollectionData = async (uid: string, paths: string[]) => {
-    console.log("[loadSubcollectionData Start] uid:", uid, "paths:", paths, "loadedModulesRef.current:", { ...loadedModulesRef.current });
-    if (!uid || paths.length === 0) return;
-
-    if (uid === 'visitor') {
-      paths.forEach(p => {
-        loadedModulesRef.current[p] = true;
-      });
-      return;
-    }
+  const loadSubcollectionData = async (paths: string[]) => {
+    if (paths.length === 0) return;
     
     // Filter out paths that are already loaded
     const pathsToLoad = paths.filter(p => !loadedModulesRef.current[p]);
     if (pathsToLoad.length === 0) return;
 
     setLoadingModuleData(true);
-    console.log("[LazyLoad] Solicitando carregamento sob demanda para os caminhos:", pathsToLoad);
 
     try {
       let updatedData = { ...data };
@@ -1068,12 +798,8 @@ export default function App() {
         const subcoll = SUBCOLLECTION_MAP[path];
         if (!subcoll) continue;
 
-        console.log(`[LazyLoad] Buscando subcoleção: '${subcoll}'`);
-        console.log(`[LazyLoad Exec] Imediatamente antes do getDocs() para a subcoleção: '${subcoll}', path: '${path}'`);
-        const qSnap = await getDocs(collection(db, 'users_data', uid, subcoll));
-        console.log(`[LazyLoad Exec] Imediatamente após o getDocs() para '${subcoll}'. Tamanho (size):`, qSnap.size);
+        const qSnap = await getDocs(collection(db, 'painel_data', 'main', subcoll));
         
-        // Detect if this path corresponds to a key-value calendar object or a regular array list
         if (path === 'gym.calendar') {
           const localCal = getValueByPath(updatedData, path) || {};
           const calendarObj: any = {};
@@ -1081,7 +807,6 @@ export default function App() {
             calendarObj[subdoc.id] = subdoc.data();
           });
 
-          // Merge local and remote
           const mergedCal = { ...localCal, ...calendarObj };
           
           const localKeys = Object.keys(localCal);
@@ -1089,10 +814,9 @@ export default function App() {
           const unsyncedKeys = localKeys.filter(k => !firestoreKeys.has(k));
 
           if (unsyncedKeys.length > 0) {
-            console.log(`[LazyLoad Sync] Encontradas ${unsyncedKeys.length} chaves locais não sincronizadas para 'gym.calendar'. Sincronizando...`);
             for (const key of unsyncedKeys) {
-              const subdocRef = doc(db, 'users_data', uid, subcoll, key);
-              sanitizeAndUploadImages(uid, localCal[key], subcoll, key).then(sanitizedItem => {
+              const subdocRef = doc(db, 'painel_data', 'main', subcoll, key);
+              sanitizeAndUploadImages(localCal[key], subcoll, key).then(sanitizedItem => {
                 const firestoreReady = sanitizeFirestoreData(sanitizedItem);
                 setDoc(subdocRef, firestoreReady);
               }).catch(err => console.error("Erro ao sincronizar chave mesclada:", err));
@@ -1110,11 +834,10 @@ export default function App() {
           const unsyncedLocalItems = localList.filter((item: any) => item && item.id && !firestoreIds.has(item.id));
 
           if (unsyncedLocalItems.length > 0) {
-            console.log(`[LazyLoad Sync] Encontrados ${unsyncedLocalItems.length} itens locais não sincronizados para '${subcoll}'. Sincronizando...`);
             for (const item of unsyncedLocalItems) {
               const itemId = item.id;
-              const subdocRef = doc(db, 'users_data', uid, subcoll, itemId);
-              sanitizeAndUploadImages(uid, item, subcoll, itemId).then(sanitizedItem => {
+              const subdocRef = doc(db, 'painel_data', 'main', subcoll, itemId);
+              sanitizeAndUploadImages(item, subcoll, itemId).then(sanitizedItem => {
                 const firestoreReady = sanitizeFirestoreData(sanitizedItem);
                 setDoc(subdocRef, firestoreReady);
               }).catch(err => console.error("Erro ao sincronizar item mesclado:", err));
@@ -1126,17 +849,13 @@ export default function App() {
         }
 
         loadedModulesRef.current[path] = true;
-        console.log(`[LazyLoad Success] loadedModulesRef.current atualizado:`, { ...loadedModulesRef.current });
-        console.log(`[LazyLoad] '${subcoll}' carregado com sucesso (${qSnap.size} documentos).`);
       }
 
       setData(updatedData);
       
-      // Initialize lastSavedDataRef if empty to start matching delta changes
       if (!lastSavedDataRef.current) {
         lastSavedDataRef.current = JSON.parse(JSON.stringify(updatedData));
       } else {
-        // Sync the newly loaded paths into lastSavedDataRef as well so we don't treat them as added items!
         for (const path of pathsToLoad) {
           const currentVal = getValueByPath(updatedData, path);
           lastSavedDataRef.current = setValueByPath(lastSavedDataRef.current, path, JSON.parse(JSON.stringify(currentVal)));
@@ -1150,95 +869,28 @@ export default function App() {
   };
 
   const handleGetLatestSiteData = async () => {
-    // 1. Immediately write any pending local changes to Firestore if the user is authenticated
-    if (user && !user.isVisitor) {
-      try {
-        const isSafe = await isSafeToSaveAppData(user.uid, data);
-        if (isSafe) {
-          const userDocRef = doc(db, 'users_data', user.uid);
-          console.log("[setDoc] Iniciando gravação imediata (handleGetLatestSiteData)");
-          console.log("[setDoc] Documento:", userDocRef.path);
-          console.log("Objeto enviado:", data);
-          console.log(JSON.stringify(data, null, 2));
-          
-          let compressedProfilePicUrl = profilePicUrl;
-          if (isBase64Image(profilePicUrl)) {
-            console.log("[Metadata] Comprimindo foto de perfil base64 para gravação imediata...");
-            compressedProfilePicUrl = await compressImage(profilePicUrl, 250, 250, 0.5);
-          }
-
-          const fullDocData = {
-            userName,
-            profilePicUrl: compressedProfilePicUrl,
-            age,
-            pin,
-            onboardingCompleted,
-            tutorialCompleted,
-            appData: data
-          };
-          
-          console.log("[Sanitizer] Iniciando auditoria recursiva de campos undefined para gravação imediata...");
-          const sanitizedDocData = sanitizeFirestoreData(fullDocData);
-          console.log("[Sanitizer] Auditoria recursiva de campos concluída com sucesso.");
-          
-          await setDoc(userDocRef, sanitizedDocData, { merge: true });
-          console.log("[setDoc] Sincronização imediata forçada com Firestore realizada com sucesso (handleGetLatestSiteData).");
-        } else {
-          console.warn("[Context Manager] Sincronização imediata forçada abortada para evitar sobrescrever dados do Firestore com estado vazio.");
-        }
-      } catch (err) {
-        console.error("[Context Manager] Erro ao sincronizar forçado com Firestore:", err);
-      }
-    }
-
-    // 2. Fetch the absolute latest document directly from Firestore
     let latestAppData = data;
     let latestUserName = userName;
-    let latestAge = age;
-    let latestPin = pin;
-    let latestOnboarding = onboardingCompleted;
-    let latestTutorial = tutorialCompleted;
     let latestProfilePic = profilePicUrl;
 
-    if (user && !user.isVisitor) {
-      try {
-        const userDocRef = doc(db, 'users_data', user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          const fetched = userDocSnap.data();
-          if (fetched.appData) {
-            latestAppData = fetched.appData;
-            // Instantly update local state so the UI stays in sync
-            setData(fetched.appData);
-          }
-          if (fetched.userName) {
-            latestUserName = fetched.userName;
-            setUserName(fetched.userName);
-          }
-          if (fetched.age) {
-            latestAge = fetched.age;
-            setAge(fetched.age);
-          }
-          if (fetched.pin) {
-            latestPin = fetched.pin;
-            setPin(fetched.pin);
-          }
-          // For existing accounts, onboarding and tutorial are always marked completed
-          latestOnboarding = true;
-          setOnboardingCompleted(true);
-          latestTutorial = true;
-          setTutorialCompleted(true);
-          if (fetched.profilePicUrl) {
-            latestProfilePic = fetched.profilePicUrl;
-            setProfilePicUrl(fetched.profilePicUrl);
-          }
+    try {
+      const mainDocRef = doc(db, 'painel_data', 'main');
+      const mainSnap = await getDoc(mainDocRef);
+      if (mainSnap.exists()) {
+        const fetched = mainSnap.data();
+        if (fetched.userName) {
+          latestUserName = fetched.userName;
+          setUserName(fetched.userName);
         }
-      } catch (err) {
-        console.error("[Context Manager] Erro ao buscar último documento do Firestore:", err);
+        if (fetched.profilePicUrl) {
+          latestProfilePic = fetched.profilePicUrl;
+          setProfilePicUrl(fetched.profilePicUrl);
+        }
       }
+    } catch (err) {
+      console.error("Erro ao buscar documento principal:", err);
     }
 
-    // 3. Re-read fresh photos and albums from gallery database
     let latestPhotos: any[] = [];
     let latestAlbums: any[] = [];
     try {
@@ -1247,7 +899,7 @@ export default function App() {
       setGalleryPhotos(latestPhotos);
       setGalleryAlbums(latestAlbums);
     } catch (err) {
-      console.error("[Context Manager] Erro ao recarregar dados da galeria:", err);
+      console.error("Erro ao recarregar dados da galeria:", err);
     }
 
     // 4. Rebuild the siteData object completely using the absolute latest values
@@ -1341,13 +993,7 @@ export default function App() {
 
       profile: {
         userName: latestUserName,
-        profilePicUrl: latestProfilePic ? "Definida" : "Não definida",
-        age: latestAge,
-        pin: latestPin ? "Definido" : "Não definido",
-        user: user ? { uid: user.uid, email: user.email } : null,
-        onboardingCompleted: latestOnboarding,
-        tutorialCompleted: latestTutorial,
-        sessionUnlocked
+        profilePicUrl: latestProfilePic ? "Definida" : "Não definida"
       },
       dashboard: {
         activeTab,
@@ -1393,236 +1039,124 @@ export default function App() {
     return reconstructedSiteData;
   };
 
-  // 2. Firebase Authentication State Observer
+  // Initial Firestore cloud hydration on mount
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const emailLower = firebaseUser.email?.toLowerCase();
-        if (emailLower !== 'malexlkw@gmail.com') {
-          console.warn("[Auth Security] Rejeitando acesso para o e-mail:", emailLower);
-          try {
-            await auth.signOut();
-          } catch (e) {
-            console.error(e);
+    async function loadInitialDataFromFirestore() {
+      try {
+        const mainDocRef = doc(db, 'painel_data', 'main');
+        const mainSnap = await getDoc(mainDocRef);
+
+        let appConfigs: any = {};
+        if (mainSnap.exists()) {
+          const remoteMain = mainSnap.data();
+          if (remoteMain.userName) {
+            setUserName(remoteMain.userName);
+            localStorage.setItem('meu_painel_de_vida_username', remoteMain.userName);
           }
-          setUser(null);
-          setLoadingAuth(false);
-          return;
+          if (remoteMain.profilePicUrl) {
+            setProfilePicUrl(remoteMain.profilePicUrl);
+            localStorage.setItem('meu_painel_de_vida_profile_pic', remoteMain.profilePicUrl);
+          }
+          if (remoteMain.appConfigs) {
+            appConfigs = remoteMain.appConfigs;
+          }
         }
 
-        setUser(firebaseUser);
-        try {
-          const userDocRef = doc(db, 'users_data', firebaseUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          
-          const savedDbStr = localStorage.getItem('meu_painel_de_vida_db');
-          let localDb: PainelData | null = null;
-          if (savedDbStr) {
-            try {
-              localDb = JSON.parse(savedDbStr);
-            } catch (e) {
-              console.error("Erro ao analisar localDb no Auth Observer", e);
-            }
-          }
+        let updatedData = { ...data };
 
-          const hasNoItems = (d: PainelData | null) => {
-            if (!d) return true;
-            const tasksCount = d.tasks ? d.tasks.length : 0;
-            const notesCount = d.notes ? d.notes.length : 0;
-            const shoppingCount = d.shoppingList ? d.shoppingList.length : 0;
-            const scheduleCount = d.schedule ? d.schedule.length : 0;
-            const schoolSubjectsCount = d.schoolSubjects ? d.schoolSubjects.length : 0;
-            const studiesCount = d.studies ? d.studies.length : 0;
-            return (tasksCount + notesCount + shoppingCount + scheduleCount + schoolSubjectsCount + studiesCount) === 0;
-          };
-          
-          if (userDocSnap.exists()) {
-            const fetchedData = userDocSnap.data();
-            setUserName(fetchedData.userName || firebaseUser.displayName || 'Usuário');
-            setProfilePicUrl(fetchedData.profilePicUrl || firebaseUser.photoURL || '');
-            setAge(fetchedData.age || '');
-            setPin(fetchedData.pin || '');
-            
-            setOnboardingCompleted(true);
-            setTutorialCompleted(true);
-            
-            if (fetchedData.onboardingCompleted !== true || fetchedData.tutorialCompleted !== true) {
-              try {
-                await setDoc(userDocRef, {
-                  onboardingCompleted: true,
-                  tutorialCompleted: true
-                }, { merge: true });
-              } catch (e) {
-                console.error("Erro ao marcar onboarding/tutorial como concluídos no Firestore:", e);
-              }
-            }
+        if (appConfigs) {
+          if (appConfigs.music) updatedData.music = { ...updatedData.music, ...appConfigs.music };
+          if (appConfigs.bible) updatedData.bible = { ...updatedData.bible, ...appConfigs.bible };
+          if (appConfigs.gym) updatedData.gym = { ...updatedData.gym, ...appConfigs.gym };
+          if (appConfigs.church) updatedData.church = { ...updatedData.church, ...appConfigs.church };
+          if (appConfigs.youtube) updatedData.youtube = { ...updatedData.youtube, ...appConfigs.youtube };
+          if (appConfigs.queroComprar) updatedData.queroComprar = { ...updatedData.queroComprar, ...appConfigs.queroComprar };
+          if (appConfigs.catalogs) updatedData.catalogs = { ...updatedData.catalogs, ...appConfigs.catalogs };
+        }
 
-            // CHECK DATABASE VERSION & TRIGGER MIGRATION OR MODULAR LOAD
-            if (fetchedData.databaseVersion === 'v2') {
-              console.log("[Auth] Usuário já está na versão v2. Carregando configurações e metadados rápidos...");
-              const appConfigs = fetchedData.appConfigs || {};
-              
-              const baseData = localDb || data || EMPTY_DATA;
-              const initialV2State = {
-                ...baseData,
-                music: {
-                  ...baseData.music,
-                  currentVibe: appConfigs.music?.currentVibe || baseData.music?.currentVibe || '',
-                  vibePhase: appConfigs.music?.vibePhase || baseData.music?.vibePhase || ''
-                },
-                bible: {
-                  ...baseData.bible,
-                  currentBook: appConfigs.bible?.currentBook || baseData.bible?.currentBook || 'Gênesis',
-                  plan: appConfigs.bible?.plan || baseData.bible?.plan || 'sequential',
-                  bookProgress: appConfigs.bible?.bookProgress || baseData.bible?.bookProgress || {}
-                },
-                gym: {
-                  ...baseData.gym,
-                  hoursTrainedTotal: appConfigs.gym?.hoursTrainedTotal ?? baseData.gym?.hoursTrainedTotal ?? 0
-                },
-                church: {
-                  ...baseData.church,
-                  bibleReadingStreak: appConfigs.church?.bibleReadingStreak ?? baseData.church?.bibleReadingStreak ?? 0,
-                  cultsAttendedCount: appConfigs.church?.cultsAttendedCount ?? baseData.church?.cultsAttendedCount ?? 0
-                },
-                youtube: {
-                  ...baseData.youtube,
-                  apiKey: appConfigs.youtube?.apiKey || baseData.youtube?.apiKey || ''
-                },
-                queroComprar: {
-                  ...baseData.queroComprar,
-                  customCategories: appConfigs.queroComprar?.customCategories || baseData.queroComprar?.customCategories || [],
-                  customCategoriesList: appConfigs.queroComprar?.customCategoriesList || baseData.queroComprar?.customCategoriesList || [],
-                  customSubCategories: appConfigs.queroComprar?.customSubCategories || baseData.queroComprar?.customSubCategories || {},
-                  deletedCategories: appConfigs.queroComprar?.deletedCategories || baseData.queroComprar?.deletedCategories || [],
-                  deletedSubCategories: appConfigs.queroComprar?.deletedSubCategories || baseData.queroComprar?.deletedSubCategories || {}
-                },
-                catalogs: {
-                  ...baseData.catalogs,
-                  songCategories: appConfigs.catalogs?.songCategories || baseData.catalogs?.songCategories || []
-                }
-              };
-              
-              setData(initialV2State);
-              loadedModulesRef.current = {};
-              hasLoadedFromServerRef.current = true;
-              setHasLoadedFromServer(true);
-            } else {
-              // Legacy User - Trigger automatic background migration to subcollections!
-              console.log("[Auth] Usuário legado detectado (v1). Iniciando migração incremental idempotente...");
-              const legacyAppData = fetchedData.appData || (localDb && !hasNoItems(localDb) ? localDb : EMPTY_DATA);
-              hasLoadedFromServerRef.current = true;
-              setHasLoadedFromServer(true);
-              await runIdempotentMigration(firebaseUser.uid, legacyAppData);
-            }
+        const paths = Object.keys(SUBCOLLECTION_MAP);
+        for (const path of paths) {
+          const subcoll = SUBCOLLECTION_MAP[path];
+          if (!subcoll) continue;
+
+          const qSnap = await getDocs(collection(db, 'painel_data', 'main', subcoll));
+
+          if (path === 'gym.calendar') {
+            const calObj: any = {};
+            qSnap.forEach(subdoc => {
+              calObj[subdoc.id] = subdoc.data();
+            });
+            const localCal = getValueByPath(updatedData, path) || {};
+            const mergedCal = { ...localCal, ...calObj };
+            updatedData = setValueByPath(updatedData, path, mergedCal);
           } else {
-            // Document does not exist: New user onboarding!
-            console.log("[Auth] Usuário não possui documento no Firestore. Criando estrutura v2...");
-            const initialUserData = {
-              userName: firebaseUser.displayName || 'Usuário',
-              profilePicUrl: firebaseUser.photoURL || '',
-              age: localStorage.getItem('lifehub_age') || '',
-              pin: localStorage.getItem('lifehub_pin') || localStorage.getItem('meu_painel_de_vida_pin') || '',
-              onboardingCompleted: localStorage.getItem('lifehub_onboarding_completed') === 'true',
-              tutorialCompleted: localStorage.getItem('lifehub_tutorial_completed') === 'true',
-              databaseVersion: 'v2',
-              migrationStatus: 'completed',
-              appConfigs: {},
-              statistics: {}
-            };
-            
-            const sanitizedInitialUserData = sanitizeFirestoreData(initialUserData);
-            await setDoc(userDocRef, sanitizedInitialUserData);
-            
-            setUserName(initialUserData.userName);
-            setProfilePicUrl(initialUserData.profilePicUrl);
-            setAge(initialUserData.age);
-            setPin(initialUserData.pin);
-            setOnboardingCompleted(initialUserData.onboardingCompleted);
-            setTutorialCompleted(initialUserData.tutorialCompleted);
-            
-            setData(EMPTY_DATA);
-            loadedModulesRef.current = {};
-            hasLoadedFromServerRef.current = true;
-            setHasLoadedFromServer(true);
+            const localList = getValueByPath(updatedData, path) || [];
+            const remoteList: any[] = [];
+            qSnap.forEach(subdoc => {
+              remoteList.push({ id: subdoc.id, ...subdoc.data() });
+            });
 
-            // If the user has offline offline data in localDb, migrate it!
-            if (localDb && !hasNoItems(localDb)) {
-              console.log("[Auth] Sincronizando dados locais do localStorage para o novo banco v2...");
-              await runIdempotentMigration(firebaseUser.uid, localDb);
+            if (remoteList.length > 0) {
+              const remoteMap = new Map(remoteList.map(item => [item.id, item]));
+              const unsyncedLocal = localList.filter((item: any) => item && item.id && !remoteMap.has(item.id));
+              const mergedList = [...remoteList, ...unsyncedLocal];
+              updatedData = setValueByPath(updatedData, path, mergedList);
             }
           }
-        } catch (e) {
-          console.error("Erro ao sincronizar dados do Firestore:", e);
-        } finally {
-          setLoadingAuth(false);
+
+          loadedModulesRef.current[path] = true;
         }
-      } else {
-        setUser(null);
-        setLoadingAuth(false);
-        setUserName(localStorage.getItem('meu_painel_de_vida_username') || 'Marcos');
-        setProfilePicUrl(localStorage.getItem('meu_painel_de_vida_profile_pic') || '');
-        setAge(localStorage.getItem('lifehub_age') || '');
-        setPin(localStorage.getItem('lifehub_pin') || localStorage.getItem('meu_painel_de_vida_pin') || '');
-        setOnboardingCompleted(localStorage.getItem('lifehub_onboarding_completed') === 'true');
-        setTutorialCompleted(localStorage.getItem('lifehub_tutorial_completed') === 'true');
-        setSessionUnlocked(false);
-        sessionStorage.removeItem('lifehub_unlocked');
-        hasLoadedFromServerRef.current = false;
-        setHasLoadedFromServer(false);
+
+        setData(updatedData);
+        localStorage.setItem('meu_painel_de_vida_db', JSON.stringify(updatedData));
+        lastSavedDataRef.current = JSON.parse(JSON.stringify(updatedData));
+        hasLoadedFromServerRef.current = true;
+        setHasLoadedFromServer(true);
+      } catch (err) {
+        console.error("Erro no carregamento do Firestore:", err);
+        hasLoadedFromServerRef.current = true;
+        setHasLoadedFromServer(true);
       }
-    });
-    return () => unsubscribe();
+    }
+
+    loadInitialDataFromFirestore();
   }, []);
 
-  // 3. Debounced Firestore Cloud Save with Delta/Incremental Syncing
+  // Debounced cloud syncing effect
   useEffect(() => {
-    if (!user || !hasLoadedFromServer || isMigrating || user.isVisitor) {
-      return;
-    }
+    localStorage.setItem('meu_painel_de_vida_db', JSON.stringify(data));
+    localStorage.setItem('meu_painel_de_vida_username', userName);
+    localStorage.setItem('meu_painel_de_vida_profile_pic', profilePicUrl);
+
+    if (!hasLoadedFromServer) return;
 
     const delayDebounceFn = setTimeout(async () => {
       try {
-        console.log("[Debounced Sync Start] loadedModulesRef.current:", { ...loadedModulesRef.current });
-        const isSafe = await isSafeToSaveAppData(user.uid, data);
-        if (!isSafe) {
-          console.warn("[Debounced Sync] Gravação cancelada pelo Data Guard.");
-          return;
-        }
-
-        console.log("[Debounced Sync] Iniciando sincronização incremental com o Firestore...");
-
         if (!lastSavedDataRef.current) {
           lastSavedDataRef.current = JSON.parse(JSON.stringify(data));
           return;
         }
 
-        const userDocRef = doc(db, 'users_data', user.uid);
         const paths = Object.keys(SUBCOLLECTION_MAP);
         let writeCount = 0;
         let deleteCount = 0;
 
         for (const path of paths) {
-          console.log(`[Debounced Sync Loop] Verificando se o path '${path}' está carregado. loadedModulesRef.current['${path}']:`, loadedModulesRef.current[path]);
-          if (!loadedModulesRef.current[path]) {
-            continue;
-          }
+          if (!loadedModulesRef.current[path]) continue;
 
           const currentVal = getValueByPath(data, path);
           const prevVal = getValueByPath(lastSavedDataRef.current, path);
           const subcoll = SUBCOLLECTION_MAP[path];
 
           if (JSON.stringify(currentVal) !== JSON.stringify(prevVal)) {
-            console.log(`[Debounced Sync] Detectadas alterações em '${path}' (subcoleção '${subcoll}')`);
-
             if (path === 'gym.calendar') {
               const currentKeys = Object.keys(currentVal || {});
               const prevKeys = Object.keys(prevVal || {});
 
               for (const key of currentKeys) {
                 if (JSON.stringify(currentVal[key]) !== JSON.stringify(prevVal?.[key])) {
-                  const subdocRef = doc(db, 'users_data', user.uid, subcoll, key);
-                  const sanitizedItem = await sanitizeAndUploadImages(user.uid, currentVal[key], subcoll, key);
+                  const subdocRef = doc(db, 'painel_data', 'main', subcoll, key);
+                  const sanitizedItem = await sanitizeAndUploadImages(currentVal[key], subcoll, key);
                   const firestoreReady = sanitizeFirestoreData(sanitizedItem);
                   await setDoc(subdocRef, firestoreReady);
                   writeCount++;
@@ -1631,7 +1165,7 @@ export default function App() {
 
               for (const key of prevKeys) {
                 if (currentVal[key] === undefined) {
-                  const subdocRef = doc(db, 'users_data', user.uid, subcoll, key);
+                  const subdocRef = doc(db, 'painel_data', 'main', subcoll, key);
                   await deleteDoc(subdocRef);
                   deleteCount++;
                 }
@@ -1647,8 +1181,8 @@ export default function App() {
                 const prevItem = prevMap.get(item.id);
                 if (!prevItem || JSON.stringify(item) !== JSON.stringify(prevItem)) {
                   const itemId = item.id || generateUuid();
-                  const subdocRef = doc(db, 'users_data', user.uid, subcoll, itemId);
-                  const sanitizedItem = await sanitizeAndUploadImages(user.uid, item, subcoll, itemId);
+                  const subdocRef = doc(db, 'painel_data', 'main', subcoll, itemId);
+                  const sanitizedItem = await sanitizeAndUploadImages(item, subcoll, itemId);
                   const firestoreReady = sanitizeFirestoreData(sanitizedItem);
                   await setDoc(subdocRef, firestoreReady);
                   writeCount++;
@@ -1657,7 +1191,7 @@ export default function App() {
 
               for (const item of prevArray) {
                 if (!currentMap.has(item.id)) {
-                  const subdocRef = doc(db, 'users_data', user.uid, subcoll, item.id);
+                  const subdocRef = doc(db, 'painel_data', 'main', subcoll, item.id);
                   await deleteDoc(subdocRef);
                   deleteCount++;
                 }
@@ -1667,25 +1201,11 @@ export default function App() {
         }
 
         const appConfigs = {
-          music: {
-            currentVibe: data.music?.currentVibe || '',
-            vibePhase: data.music?.vibePhase || ''
-          },
-          bible: {
-            currentBook: data.bible?.currentBook || 'Gênesis',
-            plan: data.bible?.plan || 'sequential',
-            bookProgress: data.bible?.bookProgress || {}
-          },
-          gym: {
-            hoursTrainedTotal: data.gym?.hoursTrainedTotal || 0
-          },
-          church: {
-            bibleReadingStreak: data.church?.bibleReadingStreak || 0,
-            cultsAttendedCount: data.church?.cultsAttendedCount || 0
-          },
-          youtube: {
-            apiKey: data.youtube?.apiKey || ''
-          },
+          music: { currentVibe: data.music?.currentVibe || '', vibePhase: data.music?.vibePhase || '' },
+          bible: { currentBook: data.bible?.currentBook || 'Gênesis', plan: data.bible?.plan || 'sequential', bookProgress: data.bible?.bookProgress || {} },
+          gym: { hoursTrainedTotal: data.gym?.hoursTrainedTotal || 0 },
+          church: { bibleReadingStreak: data.church?.bibleReadingStreak || 0, cultsAttendedCount: data.church?.cultsAttendedCount || 0 },
+          youtube: { apiKey: data.youtube?.apiKey || '' },
           queroComprar: {
             customCategories: data.queroComprar?.customCategories || [],
             customCategoriesList: data.queroComprar?.customCategoriesList || [],
@@ -1693,83 +1213,34 @@ export default function App() {
             deletedCategories: data.queroComprar?.deletedCategories || [],
             deletedSubCategories: data.queroComprar?.deletedSubCategories || {}
           },
-          catalogs: {
-            songCategories: data.catalogs?.songCategories || []
-          }
+          catalogs: { songCategories: data.catalogs?.songCategories || [] }
         };
 
-        const totalTasks = data.tasks?.length || 0;
-        const completedTasks = data.tasks?.filter((t: any) => t.completed).length || 0;
-        const pendingTasks = totalTasks - completedTasks;
-
-        let totalEarnings = 0;
-        let totalExpenses = 0;
-        data.finance?.forEach((f: any) => {
-          if (f.type === 'income') totalEarnings += f.amount;
-          else totalExpenses += f.amount;
-        });
-        const balance = totalEarnings - totalExpenses;
-
-        const hoursTrainedTotal = data.gym?.hoursTrainedTotal || 0;
-        const churchGoalsCompleted = data.church?.goals?.filter((g: any) => g.completed).length || 0;
-        const wishlistItemsCount = data.queroComprar?.items?.length || 0;
-        const notesCount = data.notes?.length || 0;
-        const photosCount = galleryPhotos.length;
-
-        const statistics = {
-          totalTasks,
-          completedTasks,
-          pendingTasks,
-          totalEarnings,
-          totalExpenses,
-          balance,
-          hoursTrainedTotal,
-          churchGoalsCompleted,
-          wishlistItemsCount,
-          notesCount,
-          photosCount
-        };
-
-        let compressedProfilePicUrl = profilePicUrl;
-        if (isBase64Image(profilePicUrl)) {
-          console.log("[Metadata Sync] Comprimindo foto de perfil base64 antes do upload periódico...");
-          compressedProfilePicUrl = await compressImage(profilePicUrl, 250, 250, 0.5);
-        }
-
-        console.log("[Debounced Sync] Sincronizando metadados raiz...");
-        await setDoc(userDocRef, {
+        const mainDocRef = doc(db, 'painel_data', 'main');
+        await setDoc(mainDocRef, {
           userName,
-          profilePicUrl: compressedProfilePicUrl,
-          age,
-          pin,
-          onboardingCompleted,
-          tutorialCompleted,
+          profilePicUrl,
           appConfigs,
-          statistics,
           databaseVersion: 'v2'
         }, { merge: true });
 
-        console.log(`[Debounced Sync Pre-Complete] writeCount: ${writeCount}, deleteCount: ${deleteCount}, paths processed:`, paths);
         lastSavedDataRef.current = JSON.parse(JSON.stringify(data));
-        console.log(`[Debounced Sync] Sincronização incremental concluída. Salvos: ${writeCount}, Removidos: ${deleteCount}`);
       } catch (err) {
-        console.error("[Debounced Sync] Erro na gravação periódica incremental:", err);
+        console.error("Erro na sincronização do Firestore:", err);
       }
     }, 1200);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [data, userName, profilePicUrl, age, pin, onboardingCompleted, tutorialCompleted, user, isMigrating, hasLoadedFromServer]);
+  }, [data, userName, profilePicUrl, hasLoadedFromServer]);
 
-  // 4. On-Demand Lazy Loading on View Change
+  // On-Demand Lazy Loading on View Change
   useEffect(() => {
-    if (!user || !hasLoadedFromServer || isMigrating) return;
-    
+    if (!hasLoadedFromServer) return;
     const paths = getPathsNeededForCurrentView(activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab);
     if (paths.length > 0) {
-      console.log("[On-Demand Lazy Load] Chamar loadSubcollectionData com caminhos:", paths);
-      loadSubcollectionData(user.uid, paths);
+      loadSubcollectionData(paths);
     }
-  }, [activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab, user, isMigrating, hasLoadedFromServer]);
+  }, [activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab, hasLoadedFromServer]);
 
   // Sync state changes dynamically from custom events (instant reactivity)
   useEffect(() => {
@@ -1946,73 +1417,13 @@ export default function App() {
 
   // 2. LocalStorage Syncing
   useEffect(() => {
-    if (user && !hasLoadedFromServer) return;
-
-    // Safeguard: do not save EMPTY_DATA unless an explicit reset is happening
+    if (!hasLoadedFromServer) return;
     if (isResettingDataRef.current) {
       localStorage.setItem('meu_painel_de_vida_db', JSON.stringify(data));
       return;
     }
-
-    const hasNoItems = (d: PainelData) => {
-      const tasksCount = d.tasks ? d.tasks.length : 0;
-      const notesCount = d.notes ? d.notes.length : 0;
-      const shoppingCount = d.shoppingList ? d.shoppingList.length : 0;
-      const scheduleCount = d.schedule ? d.schedule.length : 0;
-      const schoolSubjectsCount = d.schoolSubjects ? d.schoolSubjects.length : 0;
-      const studiesCount = d.studies ? d.studies.length : 0;
-      return (tasksCount + notesCount + shoppingCount + scheduleCount + schoolSubjectsCount + studiesCount) === 0;
-    };
-
-    let dataToSave = data;
-
-    if (user) {
-      const stored = localStorage.getItem('meu_painel_de_vida_db');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          let merged = { ...data };
-          let mergedAny = false;
-
-          const paths = Object.keys(SUBCOLLECTION_MAP);
-          for (const path of paths) {
-            // Se o módulo NÃO está marcado como carregado do Firestore nesta sessão,
-            // preservamos o valor que já estava salvo no localStorage para não sobrescrevê-lo com vazio
-            if (!loadedModulesRef.current[path]) {
-              const cachedVal = getValueByPath(parsed, path);
-              if (cachedVal !== undefined) {
-                merged = setValueByPath(merged, path, cachedVal);
-                mergedAny = true;
-              }
-            }
-          }
-
-          if (mergedAny) {
-            dataToSave = merged;
-          }
-        } catch (e) {
-          console.error("Erro ao fazer merge inteligente para o localStorage:", e);
-        }
-      }
-    }
-
-    if (hasNoItems(dataToSave)) {
-      const stored = localStorage.getItem('meu_painel_de_vida_db');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (!hasNoItems(parsed)) {
-            console.warn("[Data Guard] Impedindo que dados vazios do estado sobrescrevam o cache local do localStorage contendo dados.");
-            return;
-          }
-        } catch (e) {
-          console.error("Erro ao analisar local db no Data Guard", e);
-        }
-      }
-    }
-
-    localStorage.setItem('meu_painel_de_vida_db', JSON.stringify(dataToSave));
-  }, [data, user, hasLoadedFromServer]);
+    localStorage.setItem('meu_painel_de_vida_db', JSON.stringify(data));
+  }, [data, hasLoadedFromServer]);
 
   useEffect(() => {
     localStorage.setItem('meu_painel_de_vida_dark', darkMode.toString());
@@ -2030,23 +1441,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('meu_painel_de_vida_profile_pic', profilePicUrl);
   }, [profilePicUrl]);
-
-  useEffect(() => {
-    localStorage.setItem('lifehub_onboarding_completed', onboardingCompleted.toString());
-  }, [onboardingCompleted]);
-
-  useEffect(() => {
-    localStorage.setItem('lifehub_tutorial_completed', tutorialCompleted.toString());
-  }, [tutorialCompleted]);
-
-  useEffect(() => {
-    localStorage.setItem('lifehub_age', age);
-  }, [age]);
-
-  useEffect(() => {
-    localStorage.setItem('lifehub_pin', pin);
-    localStorage.setItem('meu_painel_de_vida_pin', pin);
-  }, [pin]);
 
   // Handle clicking outside global search to close results panel
   useEffect(() => {
@@ -2689,41 +2083,7 @@ export default function App() {
     }, 3000);
   };
 
-  const handleLockApp = () => {
-    setSessionUnlocked(false);
-    sessionStorage.removeItem('lifehub_unlocked');
-  };
 
-  const handleSignOut = async () => {
-    if (user?.isVisitor) {
-      setUser(null);
-      setHasLoadedFromServer(false);
-      return;
-    }
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error("Erro ao deslogar:", err);
-    }
-  };
-
-  const handleEnterAsVisitor = () => {
-    setUser({
-      uid: 'visitor',
-      email: 'visitante@paineldevida.com',
-      displayName: 'Visitante',
-      isVisitor: true
-    });
-    setUserName('Visitante');
-    setOnboardingCompleted(true);
-    setTutorialCompleted(true);
-    setSessionUnlocked(true);
-    setHasLoadedFromServer(true);
-  };
-
-  const handleRestartOnboarding = () => {
-    setOnboardingCompleted(false);
-  };
 
   // 5. Global Search across ALL sections helper
   const getSearchResults = () => {
@@ -2861,122 +2221,10 @@ export default function App() {
   };
 
   const renderTutorialOverlay = () => {
-    if (!onboardingCompleted || tutorialCompleted || !user) return null;
-    return (
-      <SeteTutorial 
-        currentStepIndex={tutorialStepIndex}
-        onStepIndexChange={setTutorialStepIndex}
-        onStepChange={(tabId) => {
-          setActiveTab(tabId);
-          if (tabId === 'organization') {
-            setActiveOrgSubTab('home');
-          } else if (tabId === 'finance') {
-            setActiveFinSubTab('home');
-          } else if (tabId === 'studies') {
-            setActiveStudiesSubTab('home');
-          } else if (tabId === 'entertainment') {
-            setActiveEntSubTab('home');
-          }
-        }}
-        onComplete={async () => {
-          setTutorialCompleted(true);
-          setTutorialStepIndex(0);
-          setActiveTab('dashboard');
-          try {
-            const userDocRef = doc(db, 'users_data', user.uid);
-            console.log("[setDoc] Iniciando gravação de conclusão do tutorial");
-            console.log("[setDoc] Documento:", userDocRef.path);
-            console.log("[setDoc] Dados enviados:", { tutorialCompleted: true });
-            await setDoc(userDocRef, {
-              tutorialCompleted: true
-            }, { merge: true });
-            console.log("[setDoc] Conclusão do tutorial persistida com sucesso.");
-          } catch (err) {
-            console.error("Erro ao salvar progresso do tutorial:", err);
-          }
-        }}
-      />
-    );
+    return null;
   };
 
-  // 1. Loading State Gate
-  if (loadingAuth) {
-    return (
-      <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center text-slate-100 z-50">
-        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
-        <p className="text-xs uppercase tracking-widest font-black text-slate-400 animate-pulse">Sincronizando Painel de Vida...</p>
-      </div>
-    );
-  }
 
-  // 1.5. Database Migration State Gate
-  if (isMigrating) {
-    return (
-      <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center text-slate-100 z-50">
-        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-6" />
-        <p className="text-sm uppercase tracking-widest font-black text-emerald-400 mb-2">Atualizando banco de dados...</p>
-        <p className="text-xs text-slate-400 text-center max-w-md px-4 font-mono">{migrationProgress}</p>
-      </div>
-    );
-  }
-
-  // 2. Auth State Gate (User must log in or sign up first)
-  if (!user) {
-    return (
-      <AuthScreen 
-        onSuccess={() => setActiveTab('dashboard')} 
-        onVisitorMode={handleEnterAsVisitor} 
-      />
-    );
-  }
-
-  // 3. Onboarding Wizard Gate (Trigger for brand new users)
-  if (!onboardingCompleted) {
-    return (
-      <OnboardingWizard 
-        initialName={userName || user.displayName || ''}
-        onComplete={(profile) => {
-          setUserName(profile.name);
-          if (profile.photo) setProfilePicUrl(profile.photo);
-          setAge(profile.age);
-          setPin(profile.pin);
-          setOnboardingCompleted(true);
-          setSessionUnlocked(true);
-          sessionStorage.setItem('lifehub_unlocked', 'true');
-        }} 
-        onSignOut={handleSignOut}
-      />
-    );
-  }
-
-  // 4. Session Lock Screen Gate (If PIN is set but session is still locked)
-  if (pin && !sessionUnlocked) {
-    const isGoogle = user.providerData?.some((p: any) => p.providerId === 'google.com');
-
-    const handleResetPinWithPassword = async (password: string): Promise<boolean> => {
-      if (!user || !user.email) return false;
-      try {
-        await signInWithEmailAndPassword(auth, user.email, password);
-        return true;
-      } catch (err) {
-        console.error("Erro na re-autenticação do PIN:", err);
-        return false;
-      }
-    };
-
-    return (
-      <LockScreen 
-        correctPin={pin} 
-        onUnlock={() => {
-          setSessionUnlocked(true);
-          sessionStorage.setItem('lifehub_unlocked', 'true');
-        }} 
-        onResetPinWithPassword={handleResetPinWithPassword}
-        onSignOut={handleSignOut}
-        isGoogleUser={isGoogle}
-      />
-    );
-  }
 
   if (activeTab === 'sete') {
     return (
@@ -3376,7 +2624,7 @@ export default function App() {
               <ArrowLeft size={13} className="text-slate-500 group-hover:text-slate-755 dark:group-hover:text-white transition-colors" />
               <span>{activeEntSubTab === 'home' ? 'Voltar ao Dashboard' : 'Voltar às Opções'}</span>
             </button>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white text-center flex-1 md:absolute md:left-1/2 md:-translate-x-1/2">������ {getTabLabel('entertainment', 'Central de Entretenimento')}</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white text-center flex-1 md:absolute md:left-1/2 md:-translate-x-1/2">🎬 {getTabLabel('entertainment', 'Central de Entretenimento')}</h1>
           </div>
         </div>
 
@@ -3525,25 +2773,7 @@ export default function App() {
   return (
     <div className="min-h-screen font-sans antialiased text-slate-850 dark:text-slate-100 transition-colors duration-300 bg-slate-50 dark:bg-[#070b19] flex flex-col relative overflow-hidden">
       
-      {/* Visitor Mode Banner Notice */}
-      {user?.isVisitor && (
-        <div className="bg-amber-600 dark:bg-amber-700/95 text-white text-xs font-semibold py-2 px-4 shadow-sm z-50 relative select-none border-b border-amber-500/30">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left w-full">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">⚠️</span>
-              <span>
-                Você está no <strong className="font-bold">Modo Visitante (Apenas Visualização)</strong>. Suas alterações serão salvas temporariamente no seu navegador, mas não serão sincronizadas na nuvem.
-              </span>
-            </div>
-            <button 
-              onClick={handleSignOut}
-              className="px-3 py-1 bg-white/15 hover:bg-white/25 active:scale-95 transition-all text-white border border-white/25 rounded-md text-[10px] uppercase font-black cursor-pointer shrink-0"
-            >
-              Criar Conta / Sair
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* Dynamic Module Loading Indicator */}
       {loadingModuleData && (
@@ -4482,28 +3712,6 @@ export default function App() {
                   setProfilePicUrl={setProfilePicUrl}
                   darkMode={darkMode}
                   setDarkMode={setDarkMode}
-                  onLockApp={handleLockApp}
-                  onSignOut={handleSignOut}
-                  onRestartOnboarding={handleRestartOnboarding}
-                  currentUserEmail={user?.email || ''}
-                  onRestartTutorial={async () => {
-                    setTutorialCompleted(false);
-                    setTutorialStepIndex(0);
-                    if (user && !user.isVisitor) {
-                      try {
-                        const userDocRef = doc(db, 'users_data', user.uid);
-                        console.log("[setDoc] Iniciando gravação de reinício do tutorial");
-                        console.log("[setDoc] Documento:", userDocRef.path);
-                        console.log("[setDoc] Dados enviados:", { tutorialCompleted: false });
-                        await setDoc(userDocRef, {
-                          tutorialCompleted: false
-                        }, { merge: true });
-                        console.log("[setDoc] Reinício do tutorial persistido com sucesso.");
-                      } catch (err) {
-                        console.error("Erro ao reiniciar tutorial no Firestore:", err);
-                      }
-                    }
-                  }}
                 />
               </div>
             )}
