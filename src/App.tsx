@@ -54,10 +54,11 @@ import SeteTutorial from './components/SeteTutorial';
 
 // Component imports
 import OverviewDashboard from './components/OverviewDashboard';
+import SchoolSection from './components/SchoolSection';
+import PersonalStudiesSection from './components/PersonalStudiesSection';
 import ShoppingListSection from './components/ShoppingListSection';
 import TasksSection from './components/TasksSection';
 import ScheduleSection from './components/ScheduleSection';
-import StudiesSection, { getInitialSchoolSubjects, getInitialStudies } from './components/StudiesSection';
 import MediaSection from './components/MediaSection';
 import MusicSection from './components/MusicSection';
 import BibleSection from './components/BibleSection';
@@ -72,7 +73,6 @@ import NotesSection from './components/NotesSection';
 import CreativitySection from './components/CreativitySection';
 import LockScreen from './components/LockScreen';
 import SeteSection from './components/SeteSection';
-import GymSection from './components/GymSection';
 import ChurchSection from './components/ChurchSection';
 import YouTubeSection from './components/YouTubeSection';
 import GallerySection from './components/GallerySection';
@@ -220,37 +220,12 @@ const migrateStudiesData = (parsed: any) => {
       parsed.schoolSubjects = migratedSubjects;
       migrated = true;
     } else {
-      parsed.schoolSubjects = getInitialSchoolSubjects();
+      parsed.schoolSubjects = [];
     }
   }
 
-  // 2. Migrate personal studies to studies if empty
-  if (!parsed.studies || parsed.studies.length === 0) {
-    const savedPersonal = localStorage.getItem('estudos_pessoais_v1');
-    if (savedPersonal) {
-      try {
-        const personalObj = JSON.parse(savedPersonal);
-        if (Array.isArray(personalObj) && personalObj.length > 0) {
-          parsed.studies = personalObj.map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            grade: '',
-            contentsByTab: {},
-            contentsStudied: '',
-            progress: 0,
-            history: [],
-            contents: s.contents || []
-          }));
-          migrated = true;
-        }
-      } catch (e) {
-        console.error("Error parsing local personal studies", e);
-      }
-    }
-
-    if (!parsed.studies || parsed.studies.length === 0) {
-      parsed.studies = getInitialStudies();
-    }
+  if (!parsed.studies) {
+    parsed.studies = [];
   }
 
   // If we migrated, let's delete the old localStorage keys to clean up
@@ -965,6 +940,9 @@ export default function App() {
       treino: latestAppData.gym || null,
       biblia: latestAppData.bible || null,
       igreja: latestAppData.church || null,
+      calendario: latestAppData.calendarMarkedDays || [],
+      calendar: latestAppData.calendarMarkedDays || [],
+      calendarMarkedDays: latestAppData.calendarMarkedDays || [],
       galeria: {
         photosCount,
         albumsCount: latestAlbums.length,
@@ -1285,6 +1263,13 @@ export default function App() {
     window.addEventListener('lifehub_appearance_update', handleAppearanceUpdate);
     window.addEventListener('paste', handlePaste);
 
+    // Auto-migrate tab storage to guarantee Escola, Estudos and Gym tabs are purged
+    if (!localStorage.getItem('lifehub_tabs_version_v10_purged_all')) {
+      localStorage.removeItem('lifehub_tabs_config');
+      localStorage.setItem('lifehub_tabs_version_v10_purged_all', 'true');
+      window.dispatchEvent(new CustomEvent('lifehub_sidebar_reorder'));
+    }
+
     return () => {
       window.removeEventListener('lifehub_profile_update', handleProfileUpdate);
       window.removeEventListener('lifehub_sidebar_reorder', handleTabsUpdate);
@@ -1298,15 +1283,15 @@ export default function App() {
     const defaultTabs = [
       { id: 'dashboard', label: 'Dashboard', icon: 'Home', color: 'text-indigo-500', hidden: false, pinned: false, order: 0 },
       { id: 'sete', label: 'Sete IA', icon: 'Sparkles', color: 'text-amber-500 font-extrabold animate-pulse', hidden: false, pinned: false, order: 1 },
-      { id: 'organization', label: 'Organização', icon: 'Calendar', color: 'text-cyan-500', hidden: false, pinned: false, order: 2 },
-      { id: 'finance', label: 'Vida Financeira', icon: 'DollarSign', color: 'text-emerald-500', hidden: false, pinned: false, order: 3 },
-      { id: 'quero_comprar', label: '👕 Quero Comprar', icon: 'ShoppingBag', color: 'text-pink-500 font-extrabold', hidden: false, pinned: false, order: 4 },
-      { id: 'studies', label: 'Estudos', icon: 'GraduationCap', color: 'text-violet-500', hidden: false, pinned: false, order: 5 },
-      { id: 'gym', label: 'Treino', icon: 'Dumbbell', color: 'text-rose-500', hidden: false, pinned: false, order: 5.5 },
-      { id: 'bible', label: 'Igreja', icon: 'Book', color: 'text-amber-500', hidden: false, pinned: false, order: 6 },
-      { id: 'catalogs', label: 'Catálogos', icon: 'Folder', color: 'text-indigo-500 font-extrabold', hidden: false, pinned: false, order: 6.5 },
-      { id: 'entertainment', label: 'Entretenimento', icon: 'Film', color: 'text-pink-500', hidden: false, pinned: false, order: 7 },
-      { id: 'system', label: 'Sistema', icon: 'Settings', color: 'text-slate-500', hidden: false, pinned: false, order: 8 }
+      { id: 'school', label: 'Escola', icon: 'BookOpen', color: 'text-sky-500 font-bold', hidden: false, pinned: false, order: 2 },
+      { id: 'studies', label: 'Estudos', icon: 'GraduationCap', color: 'text-violet-500 font-bold', hidden: false, pinned: false, order: 3 },
+      { id: 'organization', label: 'Organização', icon: 'Calendar', color: 'text-cyan-500', hidden: false, pinned: false, order: 4 },
+      { id: 'finance', label: 'Vida Financeira', icon: 'DollarSign', color: 'text-emerald-500', hidden: false, pinned: false, order: 5 },
+      { id: 'quero_comprar', label: '👕 Quero Comprar', icon: 'ShoppingBag', color: 'text-pink-500 font-extrabold', hidden: false, pinned: false, order: 6 },
+      { id: 'bible', label: 'Igreja', icon: 'Book', color: 'text-amber-500', hidden: false, pinned: false, order: 7 },
+      { id: 'catalogs', label: 'Catálogos', icon: 'Folder', color: 'text-indigo-500 font-extrabold', hidden: false, pinned: false, order: 8 },
+      { id: 'entertainment', label: 'Entretenimento', icon: 'Film', color: 'text-pink-500', hidden: false, pinned: false, order: 9 },
+      { id: 'system', label: 'Sistema', icon: 'Settings', color: 'text-slate-500', hidden: false, pinned: false, order: 10 }
     ];
 
     let tabs = defaultTabs;
@@ -1316,11 +1301,9 @@ export default function App() {
         if (Array.isArray(parsed) && parsed.length > 0) {
           // Keep only the valid tab configurations in parsed list or use default
           const validIds = new Set(defaultTabs.map(t => t.id));
-          const filtered = parsed.filter((p: any) => validIds.has(p.id)).map((p: any) => {
-            // Force rename to the user's new tab specifications
-            if (p.id === 'gym') p.label = 'Treino';
-            if (p.id === 'studies') p.label = 'Estudos';
+          const filtered = parsed.filter((p: any) => validIds.has(p.id) && p.id !== 'gym').map((p: any) => {
             if (p.id === 'bible') p.label = 'Igreja';
+            if (p.id === 'studies') p.label = 'Estudos';
             return p;
           });
           const parsedIds = new Set(filtered.map((p: any) => p.id));
@@ -1344,8 +1327,6 @@ export default function App() {
   };
 
   const getTabLabel = (id: string, defaultLabel: string) => {
-    if (id === 'gym') return 'Treino';
-    if (id === 'studies') return 'Estudos';
     if (id === 'bible') return 'Igreja';
 
     const saved = localStorage.getItem('lifehub_tabs_config');
@@ -2056,6 +2037,30 @@ export default function App() {
           });
           break;
         }
+        case 'add_calendar_day':
+        case 'add_calendar_event':
+        case 'add_calendar_marked_day': {
+          if (payload.date) {
+            markCalendarDay({
+              date: payload.date,
+              text: payload.text || payload.title || 'Compromisso',
+              color: payload.color || '#3b82f6',
+              category: payload.category || 'Geral',
+              time: payload.time || '',
+              notes: payload.notes || 'Adicionado por Sete 🐑',
+              repeat: payload.repeat || 'none',
+              important: Boolean(payload.important)
+            });
+          }
+          break;
+        }
+        case 'delete_calendar_day':
+        case 'remove_calendar_event': {
+          if (payload.date) {
+            unmarkCalendarDay(payload.date);
+          }
+          break;
+        }
         default:
           console.warn(`[Sete Action] Tipo de ação desconhecido: ${type}`);
       }
@@ -2565,45 +2570,6 @@ export default function App() {
     );
   }
 
-  /* 100% FULL-SCREEN APPLICATION INTERCEPT FOR STUDIES */
-  if (activeTab === 'studies') {
-    return (
-      <div className="h-screen w-screen bg-slate-50 dark:bg-[#070b19] flex flex-col overflow-y-auto">
-        <div className="max-w-7xl mx-auto w-full px-4 pt-6 pb-4 md:px-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1 text-left">
-            <button 
-              onClick={() => {
-                setActiveTab('dashboard');
-              }}
-              className="group inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-755 dark:text-slate-300 rounded-full text-xs font-bold border border-slate-200 dark:border-slate-800 shadow-2xs transition-all hover:translate-x-[-2px]"
-            >
-              <ArrowLeft size={13} className="text-slate-500 group-hover:text-slate-755 dark:group-hover:text-white transition-colors" />
-              <span>&larr; Voltar ao Dashboard</span>
-            </button>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-1.5">📚 {getTabLabel('studies', 'Estudos')}</h1>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto w-full px-4 py-4 md:px-8 flex-1">
-          <div className="bg-white dark:bg-[#0f172a] border border-slate-200/60 dark:border-slate-800/85 rounded-3xl p-6 shadow-xs">
-            <StudiesSection 
-              studies={data.studies}
-              schoolSubjects={data.schoolSubjects || []}
-              onAddSubject={addStudySubject}
-              onUpdateSubject={updateStudySubject}
-              onDeleteSubject={deleteStudySubject}
-              onAddHistory={addStudyHistory}
-              onDeleteHistory={deleteStudyHistory}
-              onAddSchoolSubject={addSchoolSubject}
-              onUpdateSchoolSubject={updateSchoolSubject}
-              onDeleteSchoolSubject={deleteSchoolSubject}
-            />
-          </div>
-        </div>
-        {renderTutorialOverlay()}
-      </div>
-    );
-  }
 
   /* 100% FULL-SCREEN APPLICATION INTERCEPT FOR ENTERTAINMENT */
   if (activeTab === 'entertainment') {
@@ -3444,21 +3410,17 @@ export default function App() {
               </div>
             )}
 
-            {/* 5. ESTUDOS */}
+            {/* ABA ESCOLA */}
+            {activeTab === 'school' && (
+              <div className="w-full">
+                <SchoolSection />
+              </div>
+            )}
+
+            {/* ABA ESTUDO */}
             {activeTab === 'studies' && (
               <div className="w-full">
-                <StudiesSection 
-                  studies={data.studies}
-                  schoolSubjects={data.schoolSubjects || []}
-                  onAddSubject={addStudySubject}
-                  onUpdateSubject={updateStudySubject}
-                  onDeleteSubject={deleteStudySubject}
-                  onAddHistory={addStudyHistory}
-                  onDeleteHistory={deleteStudyHistory}
-                  onAddSchoolSubject={addSchoolSubject}
-                  onUpdateSchoolSubject={updateSchoolSubject}
-                  onDeleteSchoolSubject={deleteSchoolSubject}
-                />
+                <PersonalStudiesSection />
               </div>
             )}
 
@@ -3484,16 +3446,6 @@ export default function App() {
                 <CatalogsSection
                   catalogsState={data.catalogs}
                   onUpdateCatalogs={(updater) => setData(prev => ({ ...prev, catalogs: typeof updater === 'function' ? updater(prev.catalogs || DEFAULT_CATALOGS_STATE) : updater }))}
-                />
-              </div>
-            )}
-
-            {/* GYM / TREINO TAB */}
-            {activeTab === 'gym' && (
-              <div className="w-full">
-                <GymSection 
-                  gymData={data.gym}
-                  onUpdateGym={handleUpdateGymState}
                 />
               </div>
             )}
@@ -3744,7 +3696,7 @@ export default function App() {
 
       {/* Minimalistic Page Footer */}
       <footer className="shrink-0 border-t border-slate-100 dark:border-slate-900 bg-white dark:bg-slate-900 text-center py-4 text-slate-400 text-xs">
-        © 2026 Meu Painel de Vida • Todos os direitos reservados. Projeto local 100% persistivo offline.
+        © 2026 Meu Painel de Vida TESTE • Todos os direitos reservados. Projeto local 100% persistivo offline.
       </footer>
       </div>
 

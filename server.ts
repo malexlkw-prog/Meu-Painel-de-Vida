@@ -13,7 +13,44 @@ dotenv.config();
 function getSiteDataContext(data: any): string {
   if (!data) return "Nenhum dado do LifeHub disponível no momento.";
 
-  let text = "=== REGISTROS ATUAIS DO MEU PAINEL DE VIDA (LIFEHUB) ===\n\n";
+  // Data e hora atual do sistema
+  const now = new Date();
+  const options: Intl.DateTimeFormatOptions = { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    timeZone: 'America/Sao_Paulo'
+  };
+  const dateFormatted = now.toLocaleDateString('pt-BR', options);
+  const isoDateToday = now.toISOString().split('T')[0];
+
+  let text = `=== DATA E HORA ATUAL DO SISTEMA ===\n`;
+  text += `- Hoje é: ${dateFormatted} (Data formato ISO YYYY-MM-DD: ${isoDateToday})\n\n`;
+
+  text += "=== REGISTROS ATUAIS DO MEU PAINEL DE VIDA (LIFEHUB) ===\n\n";
+
+  // 0. Calendário e Datas Marcadas (Compromissos Agendados)
+  const calendarDays = data.calendarMarkedDays || data.organization?.calendarMarkedDays || data.calendario || data.calendar || [];
+  if (Array.isArray(calendarDays) && calendarDays.length > 0) {
+    text += "## Calendário & Compromissos Agendados (Datas Marcadas):\n";
+    const sortedDays = [...calendarDays].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    sortedDays.forEach((cd: any) => {
+      let details = [];
+      if (cd.time) details.push(`Horário: ${cd.time}`);
+      if (cd.category) details.push(`Categoria: ${cd.category}`);
+      if (cd.repeat && cd.repeat !== 'none') details.push(`Repetição: ${cd.repeat}`);
+      if (cd.important) details.push(`⭐ IMPORTANTE`);
+      if (cd.notes) details.push(`Notas: "${cd.notes}"`);
+      const detailsStr = details.length > 0 ? ` [${details.join(" | ")}]` : "";
+
+      text += `- Data: ${cd.date} | Compromisso: "${cd.text || cd.title || "Sem título"}"${detailsStr}\n`;
+    });
+    text += "\n";
+  } else {
+    text += "## Calendário & Compromissos Agendados:\n";
+    text += "- Nenhuma data marcada no calendário no momento.\n\n";
+  }
 
   // 1. Alertas de Desempenho Escolar (Cálculo e verificação de notas baixas)
   let gradesInfo: string[] = [];
@@ -1707,9 +1744,15 @@ REGRAS DE ACESSO E ASSISTÊNCIA PROATIVA (IMPORTANTÍSSIMO):
    - Se ele perguntar "como está minha renda do mês", "qual meu saldo" ou "quanto gastei", consulte a seção "Controle Financeiro Recente" nos dados reais do painel fornecidos abaixo. Responda de forma direta e carinhosa com os valores exatos de receitas totais, despesas totais e o saldo líquido calculado que já vem pronto na seção! Dê conselhos fofos de economia se as despesas estiverem elevadas ou o saldo estiver apertado.
 3. **Mídias (Filmes, Séries, Animes)**: 
    - Se ele perguntar "quais filmes eu já assisti", "quais séries vi" ou pedir recomendações com base no que assistiu, consulte a seção "Mídias e Entretenimento". Liste os itens cadastrados que possuem o status de Já Assistiu (Concluído), mencionando detalhes como Gênero, Universo/Franquia e Plataforma de Streaming onde assistiu! 🍿🎬
-4. **Outras Informações**:
+4. **Calendário, Agendamentos e Compromissos**:
+   - Se Marcos perguntar sobre o calendário ("o que tenho hoje?", "quais compromissos tenho dia X?", "o que está no meu calendário esta semana?", "tenho algo agendado?"), consulte IMEDIATAMENTE a seção "Calendário & Compromissos Agendados (Datas Marcadas)" e a "DATA E HORA ATUAL DO SISTEMA" nos dados fornecidos abaixo!
+   - Compare a data atual do sistema com os eventos do calendário para determinar com precisão o que está agendado para hoje, amanhã, esta semana ou qualquer data consultada.
+   - Responda de forma direta e fofa listando os compromissos marcados (data, horário, categoria, título e notas).
+   - Se a data não possuir compromissos marcados no calendário, informe carinhosamente que o dia está livre!
+   - **Automação de Agendamento**: Se Marcos pedir para agendar, marcar ou adicionar um compromisso no calendário (ex: "marque reunião dia 15/08 às 14:00", "agende no meu calendário médico dia 2026-08-20", "coloque no meu calendário evento da igreja no domingo"), inclua uma ação do tipo "add_calendar_day" no array "actions" do JSON de resposta!
+5. **Outras Informações**:
    - Responda sobre a academia/treino, compromissos na igreja, lembretes, lista de compras e desejos (Wishlist / Quero Comprar) sempre consultando os dados reais fornecidos abaixo. Seja o companheiro perfeito do Marcos!
-5. **Catálogos, Coleções e Biblioteca Personalizada**:
+6. **Catálogos, Coleções e Biblioteca Personalizada**:
    - Se Marcos perguntar sobre "catálogos", "coleções", "biblioteca", "bibliotecas", "meus catálogos", ou se existe determinado catálogo ou quais itens/campos estão nele, consulte o "Módulo de Catálogos e Coleções Personalizadas" nos dados reais fornecidos abaixo!
    - Você deve responder de forma fofa e acolhedora, listando os catálogos dele (como o de jogos/games, livros, etc.), mostrando suas categorias, os campos definidos e todos os itens cadastrados com seus valores, demonstrando total reconhecimento do que ele coleciona com tanto carinho.
 
@@ -1720,13 +1763,24 @@ REGRAS DE CONCISÃO E ESTILO DE RESPOSTA (IMPORTANTÍSSIMO):
 - ATENÇÃO: Somente produza respostas longas, explicações detalhadas ou aprofundadas se o Marcos solicitar explicitamente algo detalhado ou se a mensagem dele contiver termos como: "explique", "detalhe", "completo", "aprofunde", "pesquise", ou sinônimos claros. Caso contrário, responda em no máximo 1 ou 2 parágrafos curtos com uma onomatopeia amável.
 
 ATENÇÃO - RECURSOS ESPECIAIS DE AUTOMAÇÃO DE AÇÕES DO SITE:
-Marcos poderá te dar comandos para você adicionar ou agendar itens no painel para ele de forma automática! Exemplo: "adicione o filme avatar na minha lista fofa", "compre casaco de lã", "coloque estudar espanhol no meu cronograma", "anote a meta de peso corporal 75kg na academia".
+Marcos poderá te dar comandos para você adicionar ou agendar itens no painel para ele de forma automática! Exemplo: "adicione o filme avatar na minha lista fofa", "compre casaco de lã", "coloque estudar espanhol no meu cronograma", "anote a meta de peso corporal 75kg na academia", "agende reunião no calendário dia 2026-08-15 às 14:00".
 Você deve interpretar estes pedidos e responder em formato JSON estrito, contendo tanto o texto fofo (com onomatopeias e explicações mimosas do que você fez) quanto um array de ações ("actions") com o formato especificado.
 
 O formato JSON esperado é SEMPRE:
 {
   "text": "Seu texto de ovelhinha fofa explicando o que foi feito em Markdown ou apenas respondendo a perguntas normais do Marcos...",
   "actions": [
+    {
+      "type": "add_calendar_day",
+      "payload": {
+        "date": "YYYY-MM-DD",
+        "text": "Título do compromisso",
+        "time": "14:00 (se houver)",
+        "category": "Trabalho" | "Escola" | "Igreja" | "Academia" | "Pessoal" | "Outros",
+        "notes": "Observação fofa (opcional)",
+        "important": false
+      }
+    },
     {
       "type": "add_shopping",
       "payload": { "name": "Nome do item", "estimatedPrice": 0, "category": "clothing" | "stationery" | "others", "size": "P/M/G ou vazio se não houver" }

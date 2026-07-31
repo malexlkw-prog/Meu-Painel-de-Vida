@@ -43,16 +43,38 @@ export interface PersonalContent {
   progress: number; // 0 to 100
 }
 
+export interface StudyLesson {
+  id: string;
+  title: string;
+  duration?: string; // e.g. "20 min"
+  type?: 'aula' | 'exercicios' | 'revisao';
+  status: 'Não iniciado' | 'Em andamento' | 'Concluído';
+  completedAt?: string;
+  notes?: string;
+  progress?: number;
+}
+
+export interface StudyModule {
+  id: string;
+  title: string;
+  description?: string;
+  lessons: StudyLesson[];
+}
+
 export interface StudySubject {
   id: string;
   name: string;
-  grade: string; // e.g. "8.5" or "A"
-  contentsStudied: string;
+  icon?: string; // icon name or emoji e.g. "BookOpen", "Calculator", "Compass", "Dna", "Atom", "Flame", "FileText"
+  color?: string; // e.g. "indigo", "emerald", "amber", "rose", "sky", "violet", "cyan", "fuchsia", "orange"
+  grade?: string; // e.g. "8.5" or "A"
+  contentsStudied?: string;
   progress: number; // 0 to 100
+  timeStudiedMinutes?: number;
+  modules?: StudyModule[];
   history: StudyHistory[];
-  topicsCurrent?: string[];          // O que estou estudando agora (Topic I am studying)
-  topicsAlreadyStudied?: string[];   // Tópicos já estudados (Topics I have already studied)
-  topicsStudyLater?: string[];       // Tópicos para estudar depois (Topics I will study later)
+  topicsCurrent?: string[];          // O que estou estudando agora
+  topicsAlreadyStudied?: string[];   // Tópicos já estudados
+  topicsStudyLater?: string[];       // Tópicos para estudar depois
   contents?: PersonalContent[];     // Personal studies contents list
 }
 
@@ -77,6 +99,7 @@ export interface SchoolSubject {
   atividades?: string;
   provas?: string;
   observacoes?: string;
+  contentsByTab?: Record<string, string>;
 }
 
 export interface MediaItem {
