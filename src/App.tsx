@@ -79,6 +79,7 @@ import GallerySection from './components/GallerySection';
 import WorldCupSection from './components/WorldCupSection';
 import CustomizationDrawer from './components/CustomizationDrawer';
 import CatalogsSection, { DEFAULT_CATALOGS_STATE } from './components/CatalogsSection';
+import ProjectsSection from './components/ProjectsSection';
 import { getAllPhotos, getAlbums } from './utils/galleryDB';
 
 // Firebase imports
@@ -2197,6 +2198,7 @@ export default function App() {
   // Sidebar list of navigation categories
   const sidebarNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, color: 'text-indigo-500' },
+    { id: 'projects', label: 'Projetos', icon: Folder, color: 'text-sky-500 font-extrabold' },
     { id: 'sete', label: 'Sete (Assistente IA)', icon: Sparkles, color: 'text-amber-500 font-black animate-pulse' },
     { id: 'gallery', label: 'Galeria Pessoal', icon: ImageIcon, color: 'text-sky-500 font-extrabold' },
     { id: 'gym', label: 'Treino', icon: Dumbbell, color: 'text-orange-500' },
@@ -2413,21 +2415,23 @@ export default function App() {
                 <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-cyan-500 transition-colors">Minhas Notas</h3>
               </button>
 
-              {/* Criatividade */}
+              {/* Central de Projetos */}
               <button 
                 onClick={() => {
-                  setActiveOrgSubTab('creativity');
-                  setActiveTab('creativity');
+                  setActiveTab('projects');
                 }} 
-                className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-violet-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer"
+                className="p-6 bg-gradient-to-br from-sky-500/10 to-indigo-500/10 dark:from-sky-950/40 dark:to-indigo-950/40 border border-sky-500/30 dark:border-sky-500/30 rounded-2xl text-left hover:border-sky-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer"
               >
                 <div className="flex justify-between items-start w-full">
-                  <div className="p-3 bg-violet-500/10 text-violet-500 rounded-xl"><Sparkles size={20} /></div>
-                  <span className="text-[10px] font-black bg-slate-150 dark:bg-slate-800 px-2.5 py-1 rounded-lg font-mono text-slate-600 dark:text-slate-300">
-                    Projetos
+                  <div className="p-3 bg-sky-500 text-white rounded-xl"><Folder size={20} /></div>
+                  <span className="text-[10px] font-black bg-sky-500 text-white px-2.5 py-1 rounded-lg font-mono">
+                    NOVO WORKSPACE
                   </span>
                 </div>
-                <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-violet-500 transition-colors">Criatividade</h3>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-sky-500 transition-colors">📁 Central de Projetos</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium line-clamp-1">Canais YT, Games, Softwares & Metas</p>
+                </div>
               </button>
 
             </div>
@@ -2736,6 +2740,30 @@ export default function App() {
     );
   }
 
+  /* 100% FULL-SCREEN APPLICATION INTERCEPT FOR STUDIES (ESTUDOS) */
+  if (activeTab === 'studies') {
+    return (
+      <div className="min-h-screen w-screen bg-slate-50 dark:bg-[#070b19] flex flex-col overflow-y-auto">
+        <div className="max-w-7xl mx-auto w-full px-4 py-6 md:px-8 flex-1">
+          <PersonalStudiesSection onBackToDashboard={() => setActiveTab('dashboard')} />
+        </div>
+        {renderTutorialOverlay()}
+      </div>
+    );
+  }
+
+  /* 100% FULL-SCREEN APPLICATION INTERCEPT FOR PROJECTS (PROJETOS) */
+  if (activeTab === 'projects') {
+    return (
+      <div className="min-h-screen w-screen bg-slate-50 dark:bg-[#070b19] flex flex-col overflow-y-auto">
+        <div className="max-w-7xl mx-auto w-full px-4 py-6 md:px-8 flex-1">
+          <ProjectsSection onBackToDashboard={() => setActiveTab('dashboard')} />
+        </div>
+        {renderTutorialOverlay()}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen font-sans antialiased text-slate-850 dark:text-slate-100 transition-colors duration-300 bg-slate-50 dark:bg-[#070b19] flex flex-col relative overflow-hidden">
       
@@ -2855,8 +2883,17 @@ export default function App() {
             )}
           </div>
 
-          {/* Dark / Light toggle switcher */}
+          {/* Dark / Light toggle switcher & Direct Projects Button */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveTab('projects')}
+              className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Abrir Central de Projetos"
+            >
+              <Folder size={14} />
+              <span>Projetos</span>
+            </button>
+
             <button
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 border border-slate-200/50 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer flex items-center justify-center"
@@ -2878,8 +2915,8 @@ export default function App() {
       {/* Main Structural responsive double-column layout */}
       <div className="flex-1 max-w-7xl mx-auto w-full flex relative">
         
-        {/* Left Sidebar Menu for Desktop */}
-        <aside className="w-64 border-r border-slate-200/60 dark:border-slate-800 p-5 shrink-0 hidden md:block space-y-6">
+        {/* Left Sidebar Menu for Desktop (Hidden in dedicated full-page views like Estudos, Escola and Projetos) */}
+        <aside className={`w-64 border-r border-slate-200/60 dark:border-slate-800 p-5 shrink-0 ${ (activeTab === 'studies' || activeTab === 'school' || activeTab === 'projects') ? 'hidden' : 'hidden md:block' } space-y-6`}>
           
           <div className="space-y-4">
             {(() => {
@@ -3181,25 +3218,25 @@ export default function App() {
                         </div>
                       </motion.button>
 
-                      {/* 6. Criatividade */}
+                      {/* 6. Central de Projetos */}
                       <motion.button
                         whileHover={{ y: -4, scale: 1.01, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}
                         whileTap={{ scale: 0.99 }}
-                        onClick={() => setActiveTab('creativity')}
-                        className="relative p-6 text-left bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl transition-all duration-300 shadow-xs hover:border-pink-500/50 dark:hover:border-pink-500/50 flex flex-col justify-between h-44 overflow-hidden group cursor-pointer w-full"
+                        onClick={() => setActiveTab('projects')}
+                        className="relative p-6 text-left bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-indigo-500/10 dark:from-sky-950/40 dark:to-indigo-950/40 border border-sky-500/40 dark:border-sky-500/30 rounded-3xl transition-all duration-300 shadow-xs hover:border-sky-500 flex flex-col justify-between h-44 overflow-hidden group cursor-pointer w-full"
                       >
-                        <div className="hidden sm:block absolute -top-10 -right-10 w-24 h-24 bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-xl group-hover:scale-150 transition-transform duration-500" />
+                        <div className="hidden sm:block absolute -top-10 -right-10 w-24 h-24 bg-gradient-to-br from-sky-500/20 to-transparent rounded-full blur-xl group-hover:scale-150 transition-transform duration-500" />
                         <div className="w-full flex items-start justify-between">
-                          <div className="p-3 bg-pink-50 dark:bg-pink-955/20 text-pink-600 dark:text-pink-400 rounded-2xl group-hover:scale-110 transition-transform duration-300 border border-pink-100/30 dark:border-pink-500/10">
-                            <Sparkles size={22} />
+                          <div className="p-3 bg-sky-500 text-white rounded-2xl group-hover:scale-110 transition-transform duration-300 shadow-sm">
+                            <Folder size={22} />
                           </div>
-                          <span className="text-[10px] font-bold tracking-wider text-pink-600 dark:text-pink-400 bg-pink-50/80 dark:bg-pink-955/40 px-2.5 py-1 rounded-full border border-pink-100/20 dark:border-pink-500/5">
-                            {data.creativityProjects?.length || 0} projetos
+                          <span className="text-[10px] font-bold tracking-wider text-sky-700 dark:text-sky-300 bg-sky-100/80 dark:bg-sky-950/80 px-2.5 py-1 rounded-full border border-sky-200 dark:border-sky-500/20 font-mono uppercase">
+                            NOVA ABA
                           </span>
                         </div>
                         <div className="space-y-1 relative z-10">
-                          <h3 className="text-sm font-black text-slate-800 dark:text-white tracking-tight group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">Criatividade</h3>
-                          <p className="text-xs text-slate-400 dark:text-slate-500 font-medium line-clamp-2">Acompanhe projetos pessoais, insights e ideias criativas.</p>
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white tracking-tight group-hover:text-sky-500 transition-colors">📁 Central de Projetos</h3>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-2">Canais do YouTube, Games, História, Softwares, Ideias & Kanbans.</p>
                         </div>
                       </motion.button>
                     </div>
@@ -3413,14 +3450,21 @@ export default function App() {
             {/* ABA ESCOLA */}
             {activeTab === 'school' && (
               <div className="w-full">
-                <SchoolSection />
+                <SchoolSection onBackToDashboard={() => setActiveTab('dashboard')} />
               </div>
             )}
 
             {/* ABA ESTUDO */}
             {activeTab === 'studies' && (
               <div className="w-full">
-                <PersonalStudiesSection />
+                <PersonalStudiesSection onBackToDashboard={() => setActiveTab('dashboard')} />
+              </div>
+            )}
+
+            {/* ABA PROJETOS */}
+            {activeTab === 'projects' && (
+              <div className="w-full">
+                <ProjectsSection onBackToDashboard={() => setActiveTab('dashboard')} />
               </div>
             )}
 

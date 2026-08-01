@@ -601,3 +601,99 @@ export interface CatalogsState {
   customItems: CustomCatalogItem[];
 }
 
+// ==========================================
+// PROJETOS (PROJECTS MANAGEMENT) INTERFACES
+// ==========================================
+export interface ProjectIdea {
+  id: string;
+  title: string;
+  description: string;
+  category?: string;
+  priority: 'baixa' | 'média' | 'alta';
+  notes?: string;
+  attachments?: { name: string; url: string }[];
+  links?: { title: string; url: string }[];
+  tags?: string[];
+  createdAt: string;
+}
+
+export interface ProjectTask {
+  id: string;
+  title: string;
+  description?: string;
+  priority: 'baixa' | 'média' | 'alta';
+  deadline?: string;
+  assignee?: string;
+  checklist?: { id: string; text: string; completed: boolean }[];
+  completed: boolean;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface ProjectContentItem {
+  id: string;
+  title: string;
+  script?: string;
+  thumbnailUrl?: string;
+  description?: string;
+  hashtags?: string[];
+  status: 'publicado' | 'em_andamento' | 'nao_iniciado';
+  type?: 'video' | 'artigo' | 'produto' | 'post' | 'outro';
+  publishedAt?: string;
+  scheduledAt?: string;
+  createdAt: string;
+}
+
+export interface ProjectDoc {
+  id: string;
+  title: string;
+  category: 'documento' | 'link' | 'senha_cofre' | 'referencia' | 'contato' | 'recurso';
+  content: string;
+  url?: string;
+  contactInfo?: { email?: string; phone?: string; role?: string };
+  createdAt: string;
+}
+
+export interface ProjectGoal {
+  id: string;
+  name: string;
+  deadline?: string;
+  currentValue: number;
+  targetValue: number;
+  unit?: string;
+  status: 'em_andamento' | 'concluida' | 'pausada';
+  createdAt: string;
+}
+
+export interface ProjectFile {
+  id: string;
+  name: string;
+  url: string;
+  type?: string;
+  size?: string;
+  uploadedAt: string;
+}
+
+export interface ProjectWorkspaceData {
+  status: 'em_andamento' | 'concluido' | 'em_pausa' | 'planejamento';
+  ideas: ProjectIdea[];
+  tasks: ProjectTask[];
+  content: ProjectContentItem[];
+  organization: ProjectDoc[];
+  goals: ProjectGoal[];
+  files: ProjectFile[];
+}
+
+export interface ProjectItem {
+  id: string;
+  name: string;
+  icon: string;
+  category?: string;
+  description?: string;
+  hasSubprojects?: boolean;
+  subprojects?: ProjectItem[];
+  workspace?: ProjectWorkspaceData;
+  createdAt: string;
+}
+
+

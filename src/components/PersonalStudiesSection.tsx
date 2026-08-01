@@ -12,7 +12,8 @@ import {
   Award, 
   X, 
   ChevronRight,
-  Sparkles
+  Sparkles,
+  ArrowLeft
 } from 'lucide-react';
 
 // TYPES FOR ESTUDOS
@@ -37,26 +38,16 @@ export interface StudyPlan {
 }
 
 // TYPES FOR CURSOS
-export interface CourseLesson {
-  id: string;
-  title: string;
-  status: 'concluido' | 'em_andamento' | 'nao_iniciado';
-}
-
-export interface CourseModule {
-  id: string;
-  title: string;
-  lessons: CourseLesson[];
-}
-
 export interface Course {
   id: string;
   name: string;
   description?: string;
   platform: string; // ex: Udemy, YouTube, Alura
   instructor?: string;
-  status: 'em_andamento' | 'concluido' | 'pausado';
-  modules: CourseModule[];
+  status: 'concluido' | 'em_andamento' | 'pausado';
+  hasCertificate?: boolean;
+  certificateNotes?: string;
+  modules?: any[];
 }
 
 // TYPES FOR IDIOMAS
@@ -171,26 +162,8 @@ const INITIAL_COURSES: Course[] = [
     platform: 'Udemy',
     instructor: 'Pedro Sobral',
     status: 'em_andamento',
-    modules: [
-      {
-        id: 'cm1',
-        title: 'Módulo 1 — Fundamentos do Marketing',
-        lessons: [
-          { id: 'cl1', title: 'Introdução ao Marketing Digital', status: 'concluido' },
-          { id: 'cl2', title: 'Definição de Público-alvo', status: 'concluido' },
-          { id: 'cl3', title: 'Criação de Persona', status: 'em_andamento' },
-          { id: 'cl4', title: 'Estratégia de Posicionamento', status: 'nao_iniciado' }
-        ]
-      },
-      {
-        id: 'cm2',
-        title: 'Módulo 2 — Copywriting e Oferta',
-        lessons: [
-          { id: 'cl5', title: 'Gatilhos Mentais Principais', status: 'nao_iniciado' },
-          { id: 'cl6', title: 'Estruturação de Oferta Irresistível', status: 'nao_iniciado' }
-        ]
-      }
-    ]
+    hasCertificate: false,
+    certificateNotes: 'Certificado emitido após a avaliação final'
   },
   {
     id: 'dev_fullstack',
@@ -198,18 +171,19 @@ const INITIAL_COURSES: Course[] = [
     description: 'Aplicações modernas com TypeScript e Tailwind',
     platform: 'Rocketseat',
     instructor: 'Diego Fernandes',
-    status: 'em_andamento',
-    modules: [
-      {
-        id: 'cm3',
-        title: 'Módulo 1 — Fundamentos de React & Componentes',
-        lessons: [
-          { id: 'cl8', title: 'JSX e Componentização', status: 'concluido' },
-          { id: 'cl9', title: 'Gerenciamento de Estado (useState)', status: 'concluido' },
-          { id: 'cl10', title: 'Efeitos Colaterais (useEffect)', status: 'concluido' }
-        ]
-      }
-    ]
+    status: 'concluido',
+    hasCertificate: true,
+    certificateNotes: 'Certificado de Conclusão de 120 horas emitido em 2026'
+  },
+  {
+    id: 'design_ui_ux',
+    name: 'UI/UX Design e Prototipagem no Figma',
+    description: 'Design de interfaces modernas e sistemas de design',
+    platform: 'Coursera',
+    instructor: 'Google UX Design Team',
+    status: 'concluido',
+    hasCertificate: true,
+    certificateNotes: 'Certificado Profissional de UX Design'
   }
 ];
 
@@ -274,8 +248,13 @@ const INITIAL_LANGUAGES: LanguageItem[] = [
   }
 ];
 
-export default function PersonalStudiesSection() {
-  const [activeSubTab, setActiveSubTab] = useState<'estudos' | 'cursos' | 'idiomas'>('estudos');
+export interface PersonalStudiesSectionProps {
+  onBackToDashboard?: () => void;
+  initialSubTab?: 'menu' | 'estudos' | 'cursos' | 'idiomas';
+}
+
+export default function PersonalStudiesSection({ onBackToDashboard, initialSubTab = 'menu' }: PersonalStudiesSectionProps) {
+  const [activeSubTab, setActiveSubTab] = useState<'menu' | 'estudos' | 'cursos' | 'idiomas'>(initialSubTab);
 
   // 1. ESTUDOS STATE
   const [plans, setPlans] = useState<StudyPlan[]>(() => {
@@ -286,10 +265,10 @@ export default function PersonalStudiesSection() {
     return INITIAL_STUDY_PLANS;
   });
 
-  // Selected Study Plan Modal
-  const [selectedPlanModal, setSelectedPlanModal] = useState<StudyPlan | null>(null);
+  // Selected Study Plan Modal (stored by ID for single source of truth)
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   // Selected Module Inside Plan
-  const [selectedModuleInPlan, setSelectedModuleInPlan] = useState<StudyModule | null>(null);
+  const [selectedModuleIdInPlan, setSelectedModuleIdInPlan] = useState<string | null>(null);
 
   // 2. CURSOS STATE
   const [courses, setCourses] = useState<Course[]>(() => {
@@ -300,9 +279,26 @@ export default function PersonalStudiesSection() {
     return INITIAL_COURSES;
   });
 
-  // Selected Course Modal
-  const [selectedCourseModal, setSelectedCourseModal] = useState<Course | null>(null);
-  const [selectedCourseModule, setSelectedCourseModule] = useState<CourseModule | null>(null);
+  // Selected Course Modal for Editing
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+
+  // New Course state
+  const [isAddingCourseModal, setIsAddingCourseModal] = useState(false);
+  const [newCourseName, setNewCourseName] = useState('');
+  const [newCoursePlatform, setNewCoursePlatform] = useState('');
+  const [newCourseInstructor, setNewCourseInstructor] = useState('');
+  const [newCourseStatus, setNewCourseStatus] = useState<'concluido' | 'em_andamento' | 'pausado'>('em_andamento');
+  const [newCourseHasCertificate, setNewCourseHasCertificate] = useState(false);
+  const [newCourseCertificateNotes, setNewCourseCertificateNotes] = useState('');
+
+  // Edit Course state
+  const [isEditingCourse, setIsEditingCourse] = useState(false);
+  const [editCourseName, setEditCourseName] = useState('');
+  const [editCoursePlatform, setEditCoursePlatform] = useState('');
+  const [editCourseInstructor, setEditCourseInstructor] = useState('');
+  const [editCourseStatus, setEditCourseStatus] = useState<'concluido' | 'em_andamento' | 'pausado'>('em_andamento');
+  const [editCourseHasCertificate, setEditCourseHasCertificate] = useState(false);
+  const [editCourseCertificateNotes, setEditCourseCertificateNotes] = useState('');
 
   // 3. IDIOMAS STATE
   const [languages, setLanguages] = useState<LanguageItem[]>(() => {
@@ -314,17 +310,18 @@ export default function PersonalStudiesSection() {
   });
 
   // Selected Language Modal
-  const [selectedLanguageModal, setSelectedLanguageModal] = useState<LanguageItem | null>(null);
+  const [selectedLanguageId, setSelectedLanguageId] = useState<string | null>(null);
+
+  // Dynamic state derivations - always 100% synchronized with main state
+  const selectedPlanModal = plans.find(p => p.id === selectedPlanId) || null;
+  const selectedModuleInPlan = selectedPlanModal?.modules.find(m => m.id === selectedModuleIdInPlan) || null;
+  const selectedCourseModal = courses.find(c => c.id === selectedCourseId) || null;
+  const selectedLanguageModal = languages.find(l => l.id === selectedLanguageId) || null;
 
   // Modals for Adding New Items
   const [isAddingPlanModal, setIsAddingPlanModal] = useState(false);
   const [newPlanName, setNewPlanName] = useState('');
   const [newPlanCategory, setNewPlanCategory] = useState('Estudos Pessoais');
-
-  const [isAddingCourseModal, setIsAddingCourseModal] = useState(false);
-  const [newCourseName, setNewCourseName] = useState('');
-  const [newCoursePlatform, setNewCoursePlatform] = useState('');
-  const [newCourseInstructor, setNewCourseInstructor] = useState('');
 
   const [isAddingLanguageModal, setIsAddingLanguageModal] = useState(false);
   const [newLangName, setNewLangName] = useState('');
@@ -335,11 +332,6 @@ export default function PersonalStudiesSection() {
   const [isEditingPlan, setIsEditingPlan] = useState(false);
   const [editPlanName, setEditPlanName] = useState('');
   const [editPlanCategory, setEditPlanCategory] = useState('');
-
-  const [isEditingCourse, setIsEditingCourse] = useState(false);
-  const [editCourseName, setEditCourseName] = useState('');
-  const [editCoursePlatform, setEditCoursePlatform] = useState('');
-  const [editCourseInstructor, setEditCourseInstructor] = useState('');
 
   const [isEditingLanguage, setIsEditingLanguage] = useState(false);
   const [editLangName, setEditLangName] = useState('');
@@ -387,8 +379,8 @@ export default function PersonalStudiesSection() {
 
   const handleDeletePlan = (id: string) => {
     setPlans(prev => prev.filter(p => p.id !== id));
-    if (selectedPlanModal?.id === id) setSelectedPlanModal(null);
-    if (selectedModuleInPlan) setSelectedModuleInPlan(null);
+    if (selectedPlanId === id) setSelectedPlanId(null);
+    if (selectedModuleIdInPlan) setSelectedModuleIdInPlan(null);
     setConfirmDeletePlanId(null);
   };
 
@@ -397,7 +389,6 @@ export default function PersonalStudiesSection() {
     const name = editPlanName.trim();
     const cat = editPlanCategory.trim() || 'Estudos Pessoais';
     setPlans(prev => prev.map(p => p.id === selectedPlanModal.id ? { ...p, name, category: cat } : p));
-    setSelectedPlanModal(prev => prev ? { ...prev, name, category: cat } : null);
     setIsEditingPlan(false);
   };
 
@@ -408,31 +399,64 @@ export default function PersonalStudiesSection() {
       id: Date.now().toString(),
       name: newCourseName.trim(),
       platform: newCoursePlatform.trim() || 'Plataforma Online',
-      instructor: newCourseInstructor.trim(),
-      status: 'em_andamento',
-      modules: []
+      instructor: newCourseInstructor.trim() || undefined,
+      status: newCourseStatus,
+      hasCertificate: newCourseHasCertificate,
+      certificateNotes: newCourseCertificateNotes.trim() || undefined
     };
-    setCourses(prev => [...prev, newC]);
+    setCourses(prev => [newC, ...prev]);
     setNewCourseName('');
     setNewCoursePlatform('');
     setNewCourseInstructor('');
+    setNewCourseStatus('em_andamento');
+    setNewCourseHasCertificate(false);
+    setNewCourseCertificateNotes('');
     setIsAddingCourseModal(false);
   };
 
   const handleDeleteCourse = (id: string) => {
     setCourses(prev => prev.filter(c => c.id !== id));
-    if (selectedCourseModal?.id === id) setSelectedCourseModal(null);
+    if (selectedCourseId === id) setSelectedCourseId(null);
     setConfirmDeleteCourseId(null);
   };
 
   const handleSaveEditedCourse = () => {
     if (!selectedCourseModal || !editCourseName.trim()) return;
     const name = editCourseName.trim();
-    const plat = editCoursePlatform.trim() || 'Online';
-    const inst = editCourseInstructor.trim();
-    setCourses(prev => prev.map(c => c.id === selectedCourseModal.id ? { ...c, name, platform: plat, instructor: inst } : c));
-    setSelectedCourseModal(prev => prev ? { ...prev, name, platform: plat, instructor: inst } : null);
+    const plat = editCoursePlatform.trim() || 'Plataforma Online';
+    const inst = editCourseInstructor.trim() || undefined;
+    const notes = editCourseCertificateNotes.trim() || undefined;
+
+    setCourses(prev => prev.map(c => c.id === selectedCourseModal.id ? { 
+      ...c, 
+      name, 
+      platform: plat, 
+      instructor: inst,
+      status: editCourseStatus,
+      hasCertificate: editCourseHasCertificate,
+      certificateNotes: notes
+    } : c));
     setIsEditingCourse(false);
+    setSelectedCourseId(null);
+  };
+
+  const handleToggleCourseStatus = (id: string) => {
+    setCourses(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      const nextMap: Record<string, 'concluido' | 'em_andamento' | 'pausado'> = {
+        'em_andamento': 'concluido',
+        'concluido': 'pausado',
+        'pausado': 'em_andamento'
+      };
+      return { ...c, status: nextMap[c.status] || 'em_andamento' };
+    }));
+  };
+
+  const handleToggleCourseCertificate = (id: string) => {
+    setCourses(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      return { ...c, hasCertificate: !c.hasCertificate };
+    }));
   };
 
   const handleCreateLanguage = (e: React.FormEvent) => {
@@ -454,7 +478,7 @@ export default function PersonalStudiesSection() {
 
   const handleDeleteLanguage = (id: string) => {
     setLanguages(prev => prev.filter(l => l.id !== id));
-    if (selectedLanguageModal?.id === id) setSelectedLanguageModal(null);
+    if (selectedLanguageId === id) setSelectedLanguageId(null);
     setConfirmDeleteLangId(null);
   };
 
@@ -463,7 +487,6 @@ export default function PersonalStudiesSection() {
     const name = editLangName.trim();
     const flag = editLangFlag.trim() || '🌐';
     setLanguages(prev => prev.map(l => l.id === selectedLanguageModal.id ? { ...l, name, flag, level: editLangLevel } : l));
-    setSelectedLanguageModal(prev => prev ? { ...prev, name, flag, level: editLangLevel } : null);
     setIsEditingLanguage(false);
   };
 
@@ -568,33 +591,6 @@ export default function PersonalStudiesSection() {
         })
       };
     }));
-
-    // Update modal references if active
-    if (selectedPlanModal && selectedPlanModal.id === planId) {
-      setSelectedPlanModal(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          modules: prev.modules.map(m => {
-            if (m.id !== moduleId) return m;
-            return {
-              ...m,
-              topics: m.topics.map(t => t.id === topicId ? { ...t, status: (t.status === 'nao_iniciado' ? 'em_andamento' : t.status === 'em_andamento' ? 'concluido' : 'nao_iniciado') } : t)
-            };
-          })
-        };
-      });
-    }
-
-    if (selectedModuleInPlan && selectedModuleInPlan.id === moduleId) {
-      setSelectedModuleInPlan(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          topics: prev.topics.map(t => t.id === topicId ? { ...t, status: (t.status === 'nao_iniciado' ? 'em_andamento' : t.status === 'em_andamento' ? 'concluido' : 'nao_iniciado') } : t)
-        };
-      });
-    }
   };
 
   const handleAddPlan = () => {
@@ -623,88 +619,196 @@ export default function PersonalStudiesSection() {
   return (
     <div className="space-y-6">
       
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-3xl shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-2xl">
-            <GraduationCap size={22} />
+      {/* ==================================================================== */}
+      {/* 1º NÍVEL: MENU PRINCIPAL DE ESTUDOS (APENAS SUB-ABAS DISPONÍVEIS) */}
+      {/* ==================================================================== */}
+      {activeSubTab === 'menu' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 rounded-3xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-2xl">
+                <GraduationCap size={26} />
+              </div>
+              <div>
+                <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Estudos & Aprendizado</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Selecione uma das opções abaixo para gerenciar seu aprendizado:</p>
+              </div>
+            </div>
+
+            {onBackToDashboard && (
+              <button
+                onClick={onBackToDashboard}
+                className="px-4 py-2.5 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200/60 dark:border-indigo-800/60 rounded-2xl transition-colors flex items-center gap-2 text-xs font-black shadow-2xs self-start md:self-auto cursor-pointer"
+              >
+                <ArrowLeft size={16} />
+                <span>Voltar ao Dashboard</span>
+              </button>
+            )}
           </div>
-          <div>
-            <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Estudos</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Planos de estudo em módulos, cursos online e idiomas</p>
+
+          {/* SUB-TABS NAVIGATION GRID WITH DISTINCT COLOR THEMES */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* SUB-ABA 1: ESTUDOS (INDIGO / VIOLET THEME) */}
+            <div
+              onClick={() => setActiveSubTab('estudos')}
+              className="bg-gradient-to-br from-white to-indigo-50/40 dark:from-slate-900 dark:to-indigo-950/20 border border-indigo-200/80 dark:border-indigo-900/50 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-3xl p-6 transition-all cursor-pointer group shadow-xs hover:shadow-md flex flex-col justify-between space-y-6"
+            >
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <BookOpen size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                      Estudos
+                    </h2>
+                    <span className="text-[10px] font-extrabold px-2.5 py-1 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded-full border border-indigo-200/60 dark:border-indigo-800/60">
+                      {plans.length} {plans.length === 1 ? 'plano' : 'planos'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                    Planos de estudo estruturados em matérias, módulos e tópicos de aprendizado.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-indigo-100 dark:border-indigo-900/40 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                <span>Acessar Estudos</span>
+                <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+
+            {/* SUB-ABA 2: CURSOS (EMERALD / GREEN THEME) */}
+            <div
+              onClick={() => setActiveSubTab('cursos')}
+              className="bg-gradient-to-br from-white to-emerald-50/40 dark:from-slate-900 dark:to-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/50 hover:border-emerald-500 dark:hover:border-emerald-400 rounded-3xl p-6 transition-all cursor-pointer group shadow-xs hover:shadow-md flex flex-col justify-between space-y-6"
+            >
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Award size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                      Cursos
+                    </h2>
+                    <span className="text-[10px] font-extrabold px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-200/60 dark:border-emerald-800/60">
+                      {courses.length} {courses.length === 1 ? 'curso' : 'cursos'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                    Acompanhamento de cursos online, plataformas, instrutores e progresso das aulas.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-emerald-100 dark:border-emerald-900/40 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                <span>Acessar Cursos</span>
+                <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+
+            {/* SUB-ABA 3: IDIOMAS (SKY / CYAN THEME) */}
+            <div
+              onClick={() => setActiveSubTab('idiomas')}
+              className="bg-gradient-to-br from-white to-sky-50/40 dark:from-slate-900 dark:to-sky-950/20 border border-sky-200/80 dark:border-sky-900/50 hover:border-sky-500 dark:hover:border-sky-400 rounded-3xl p-6 transition-all cursor-pointer group shadow-xs hover:shadow-md flex flex-col justify-between space-y-6"
+            >
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Globe size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-black text-slate-900 dark:text-white group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                      Idiomas
+                    </h2>
+                    <span className="text-[10px] font-extrabold px-2.5 py-1 bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 rounded-full border border-sky-200/60 dark:border-sky-800/60">
+                      {languages.length} {languages.length === 1 ? 'idioma' : 'idiomas'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                    Acompanhamento de idiomas, níveis, vocabulário e progresso por habilidades.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-sky-100 dark:border-sky-900/40 text-xs font-bold text-sky-600 dark:text-sky-400">
+                <span>Acessar Idiomas</span>
+                <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* SUB-TABS (EXACTLY THREE: Estudos, Cursos, Idiomas) */}
-        <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 self-start md:self-auto">
-          <button
-            onClick={() => setActiveSubTab('estudos')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
-              activeSubTab === 'estudos'
-                ? 'bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <BookOpen size={14} />
-            <span>Estudos</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('cursos')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
-              activeSubTab === 'cursos'
-                ? 'bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Award size={14} />
-            <span>Cursos</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('idiomas')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
-              activeSubTab === 'idiomas'
-                ? 'bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Globe size={14} />
-            <span>Idiomas</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* ==================================================================== */}
-      {/* 1. SUB-ABA: ESTUDOS (RESUMIDA NA TELA INICIAL REQ 10 & 11) */}
+      {/* 2º NÍVEL: PÁGINAS INDIVIDUALIZADAS COM BOTÃO DE VOLTAR */}
       {/* ==================================================================== */}
+
+      {/* 1. SUB-ABA: ESTUDOS (COR: INDIGO / VIOLET) */}
       {activeSubTab === 'estudos' && (
         <div className="space-y-6">
-          
-          {/* OVERALL PROGRESS BANNER */}
-          <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-3xl p-5 text-white shadow-md flex items-center justify-between gap-4">
-            <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-violet-200 block">Progresso Geral</span>
-              <h2 className="text-lg font-black">Estudos Pessoais</h2>
-            </div>
-            <div className="bg-white/15 px-4 py-2 rounded-2xl border border-white/20 text-center">
-              <span className="text-2xl font-black">{getOverallStudiesProgress()}%</span>
-              <span className="text-[10px] text-violet-200 block uppercase font-bold">Concluído</span>
-            </div>
-          </div>
+          {/* HEADER DA PÁGINA COM OPÇÃO DE VOLTAR */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-indigo-200/80 dark:border-indigo-900/50 p-5 rounded-3xl shadow-xs">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {onBackToDashboard && (
+                <button
+                  onClick={onBackToDashboard}
+                  className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700 hover:text-indigo-600 rounded-2xl transition-colors flex items-center gap-1.5 text-xs font-black shadow-2xs cursor-pointer"
+                  title="Voltar ao Dashboard Principal"
+                >
+                  <ArrowLeft size={15} />
+                  <span>Dashboard</span>
+                </button>
+              )}
 
-          {/* CONTROL BAR */}
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Planos de Estudo</h2>
+              <button
+                onClick={() => setActiveSubTab('menu')}
+                className="px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200/60 dark:border-indigo-800/60 rounded-2xl transition-colors flex items-center gap-1.5 text-xs font-black shadow-2xs cursor-pointer"
+                title="Voltar ao Menu Principal de Estudos"
+              >
+                <ArrowLeft size={15} />
+                <span>Menu de Estudos</span>
+              </button>
+
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block mx-1" />
+
+              <div>
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
+                  <button onClick={() => setActiveSubTab('menu')} className="hover:text-indigo-600 transition-colors">
+                    Estudos
+                  </button>
+                  <span>/</span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">Planos de Estudo</span>
+                </div>
+                <h1 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <BookOpen size={20} className="text-indigo-600 dark:text-indigo-400" />
+                  Planos de Estudo
+                </h1>
+              </div>
+            </div>
+
             <button
               onClick={() => setIsAddingPlanModal(true)}
-              className="p-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
             >
               <Plus size={16} /> Novo Plano
             </button>
           </div>
+          
+          {/* OVERALL PROGRESS BANNER */}
+          <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-3xl p-5 text-white shadow-md flex items-center justify-between gap-4">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-200 block">Progresso Geral</span>
+              <h2 className="text-lg font-black">Planos de Estudo</h2>
+            </div>
+            <div className="bg-white/15 px-4 py-2 rounded-2xl border border-white/20 text-center">
+              <span className="text-2xl font-black">{getOverallStudiesProgress()}%</span>
+              <span className="text-[10px] text-indigo-200 block uppercase font-bold">Concluído</span>
+            </div>
+          </div>
 
-          {/* LEVEL 1: SUMMARY CARDS OF STUDY PLANS (ONLY SHOW PROGRESS, NO MODULES OPEN REQ 10) */}
+          {/* SUMMARY CARDS OF STUDY PLANS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {plans.map(plan => {
               const prog = getPlanProgress(plan);
@@ -712,28 +816,28 @@ export default function PersonalStudiesSection() {
               return (
                 <div
                   key={plan.id}
-                  onClick={() => setSelectedPlanModal(plan)}
-                  className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 space-y-4 hover:border-violet-400 transition-all cursor-pointer group shadow-xs"
+                  onClick={() => setSelectedPlanId(plan.id)}
+                  className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 space-y-4 hover:border-indigo-400 dark:hover:border-indigo-600 transition-all cursor-pointer group shadow-xs"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="font-extrabold text-slate-900 dark:text-white text-base group-hover:text-violet-600 transition-colors">
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-base group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                         {plan.name}
                       </h3>
                       <span className="text-xs text-slate-400">{plan.modules.length} módulos</span>
                     </div>
-                    <span className="text-base font-black text-violet-600 dark:text-violet-400">{prog}%</span>
+                    <span className="text-base font-black text-indigo-600 dark:text-indigo-400">{prog}%</span>
                   </div>
 
                   {/* PROGRESS BAR */}
                   <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
                     <div 
-                      className="bg-violet-600 h-full rounded-full transition-all duration-300"
+                      className="bg-indigo-600 h-full rounded-full transition-all duration-300"
                       style={{ width: `${prog}%` }}
                     />
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 text-xs text-slate-400 group-hover:text-violet-500 font-bold">
+                  <div className="flex items-center justify-between pt-1 text-xs text-slate-400 group-hover:text-indigo-500 font-bold">
                     <span>Ver Módulos</span>
                     <ChevronRight size={16} />
                   </div>
@@ -745,78 +849,239 @@ export default function PersonalStudiesSection() {
         </div>
       )}
 
-      {/* ==================================================================== */}
-      {/* 2. SUB-ABA: CURSOS (RESUMIDA NA TELA INICIAL REQ 13) */}
-      {/* ==================================================================== */}
+      {/* 2. SUB-ABA: CURSOS (COR: EMERALD / GREEN) */}
       {activeSubTab === 'cursos' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Cursos Cadastrados</h2>
+          {/* HEADER DA PÁGINA DE CURSOS COM OPÇÃO DE VOLTAR */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-emerald-200/80 dark:border-emerald-900/50 p-5 rounded-3xl shadow-xs">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {onBackToDashboard && (
+                <button
+                  onClick={onBackToDashboard}
+                  className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-slate-700 hover:text-emerald-600 rounded-2xl transition-colors flex items-center gap-1.5 text-xs font-black shadow-2xs cursor-pointer"
+                  title="Voltar ao Dashboard Principal"
+                >
+                  <ArrowLeft size={15} />
+                  <span>Dashboard</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => setActiveSubTab('menu')}
+                className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 border border-emerald-200/60 dark:border-emerald-800/60 rounded-2xl transition-colors flex items-center gap-1.5 text-xs font-black shadow-2xs cursor-pointer"
+                title="Voltar ao Menu Principal de Estudos"
+              >
+                <ArrowLeft size={15} />
+                <span>Menu de Estudos</span>
+              </button>
+
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block mx-1" />
+
+              <div>
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
+                  <button onClick={() => setActiveSubTab('menu')} className="hover:text-emerald-600 transition-colors">
+                    Estudos
+                  </button>
+                  <span>/</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">Cursos Online</span>
+                </div>
+                <h1 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <Award size={20} className="text-emerald-600 dark:text-emerald-400" />
+                  Cursos Online
+                </h1>
+              </div>
+            </div>
+
             <button
               onClick={() => setIsAddingCourseModal(true)}
-              className="p-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
             >
               <Plus size={16} /> Adicionar Curso
             </button>
           </div>
 
-          {/* LEVEL 1: SUMMARY CARDS OF COURSES (REQ 13) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {courses.map(course => {
-              const prog = getCourseProgress(course);
+          {/* LISTA ORGANIZADA DE CURSOS */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Meus Cursos</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Clique nos botões de status e certificado para alternar rapidamente</p>
+              </div>
+              <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-xl">
+                {courses.length} {courses.length === 1 ? 'curso' : 'cursos'}
+              </span>
+            </div>
 
-              return (
-                <div
-                  key={course.id}
-                  onClick={() => setSelectedCourseModal(course)}
-                  className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 space-y-4 hover:border-violet-400 transition-all cursor-pointer group shadow-xs"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="px-2 py-0.5 bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300 rounded-full text-[10px] font-bold">
-                        {course.platform}
-                      </span>
-                      <h3 className="font-extrabold text-slate-900 dark:text-white text-base mt-1 group-hover:text-violet-600 transition-colors">
-                        {course.name}
-                      </h3>
+            {courses.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 space-y-2">
+                <Award size={36} className="mx-auto text-slate-300 dark:text-slate-700" />
+                <p className="text-xs font-bold">Nenhum curso cadastrado ainda.</p>
+                <p className="text-[11px]">Clique em "Adicionar Curso" para começar a sua lista.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {courses.map(course => {
+                  return (
+                    <div
+                      key={course.id}
+                      className="py-4 first:pt-0 last:pb-0 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 p-3 rounded-2xl transition-colors"
+                    >
+                      {/* COURSE MAIN INFO */}
+                      <div className="space-y-1 max-w-md">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 rounded-lg text-[10px] font-extrabold border border-emerald-200/50 dark:border-emerald-800/50">
+                            {course.platform}
+                          </span>
+                          {course.instructor && (
+                            <span className="text-[11px] font-medium text-slate-400">
+                              • Prof. {course.instructor}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="font-black text-slate-900 dark:text-white text-base">
+                          {course.name}
+                        </h3>
+                        {course.certificateNotes && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                            💬 {course.certificateNotes}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* STATUS & CERTIFICATE CONTROLS */}
+                      <div className="flex items-center gap-2 flex-wrap self-start md:self-auto">
+                        {/* STATUS TOGGLE */}
+                        <button
+                          onClick={() => handleToggleCourseStatus(course.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${
+                            course.status === 'concluido'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800'
+                              : course.status === 'pausado'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800'
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300/60 dark:border-blue-800'
+                          }`}
+                          title="Clique para alternar o status do curso"
+                        >
+                          {course.status === 'concluido' ? (
+                            <>
+                              <CheckCircle2 size={14} />
+                              <span>Concluído</span>
+                            </>
+                          ) : course.status === 'pausado' ? (
+                            <>
+                              <AlertCircle size={14} />
+                              <span>Pausado</span>
+                            </>
+                          ) : (
+                            <>
+                              <Circle size={14} />
+                              <span>Em Andamento</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* CERTIFICATE TOGGLE */}
+                        <button
+                          onClick={() => handleToggleCourseCertificate(course.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${
+                            course.hasCertificate
+                              ? 'bg-violet-100 text-violet-800 dark:bg-violet-950/80 dark:text-violet-300 border border-violet-300/60 dark:border-violet-800'
+                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700'
+                          }`}
+                          title="Clique para alternar a emissão do certificado"
+                        >
+                          <Award size={14} className={course.hasCertificate ? 'text-violet-600 dark:text-violet-300' : 'text-slate-400'} />
+                          <span>{course.hasCertificate ? 'Certificado Emitido' : 'Sem Certificado'}</span>
+                        </button>
+
+                        {/* EDIT & DELETE ACTIONS */}
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => {
+                              setSelectedCourseId(course.id);
+                              setEditCourseName(course.name);
+                              setEditCoursePlatform(course.platform);
+                              setEditCourseInstructor(course.instructor || '');
+                              setEditCourseStatus(course.status);
+                              setEditCourseHasCertificate(!!course.hasCertificate);
+                              setEditCourseCertificateNotes(course.certificateNotes || '');
+                              setIsEditingCourse(true);
+                            }}
+                            className="p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            title="Editar Curso"
+                          >
+                            <Edit2 size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCourse(course.id)}
+                            className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            title="Excluir Curso"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-base font-black text-violet-600 dark:text-violet-400">{prog}%</span>
-                  </div>
-
-                  <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="bg-violet-600 h-full rounded-full transition-all duration-300"
-                      style={{ width: `${prog}%` }}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1 text-xs text-slate-400 group-hover:text-violet-500 font-bold">
-                    <span>{course.modules.length} Módulos</span>
-                    <ChevronRight size={16} />
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* ==================================================================== */}
-      {/* 3. SUB-ABA: IDIOMAS (RESUMIDA NA TELA INICIAL REQ 14) */}
-      {/* ==================================================================== */}
+      {/* 3. SUB-ABA: IDIOMAS (COR: SKY / CYAN) */}
       {activeSubTab === 'idiomas' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Idiomas</h2>
+          {/* HEADER DA PÁGINA DE IDIOMAS COM OPÇÃO DE VOLTAR */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-sky-200/80 dark:border-sky-900/50 p-5 rounded-3xl shadow-xs">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {onBackToDashboard && (
+                <button
+                  onClick={onBackToDashboard}
+                  className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-slate-700 hover:text-sky-600 rounded-2xl transition-colors flex items-center gap-1.5 text-xs font-black shadow-2xs cursor-pointer"
+                  title="Voltar ao Dashboard Principal"
+                >
+                  <ArrowLeft size={15} />
+                  <span>Dashboard</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => setActiveSubTab('menu')}
+                className="px-3.5 py-2 bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900 border border-sky-200/60 dark:border-sky-800/60 rounded-2xl transition-colors flex items-center gap-1.5 text-xs font-black shadow-2xs cursor-pointer"
+                title="Voltar ao Menu Principal de Estudos"
+              >
+                <ArrowLeft size={15} />
+                <span>Menu de Estudos</span>
+              </button>
+
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block mx-1" />
+
+              <div>
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
+                  <button onClick={() => setActiveSubTab('menu')} className="hover:text-sky-600 transition-colors">
+                    Estudos
+                  </button>
+                  <span>/</span>
+                  <span className="text-sky-600 dark:text-sky-400 font-extrabold">Idiomas & Habilidades</span>
+                </div>
+                <h1 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <Globe size={20} className="text-sky-600 dark:text-sky-400" />
+                  Idiomas & Habilidades
+                </h1>
+              </div>
+            </div>
+
             <button
               onClick={() => setIsAddingLanguageModal(true)}
-              className="p-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5"
+              className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
             >
               <Plus size={16} /> Adicionar Idioma
             </button>
           </div>
 
-          {/* LEVEL 1: SUMMARY CARDS OF LANGUAGES (REQ 14) */}
+          {/* SUMMARY CARDS OF LANGUAGES */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {languages.map(lang => {
               const prog = getLanguageProgress(lang);
@@ -824,30 +1089,30 @@ export default function PersonalStudiesSection() {
               return (
                 <div
                   key={lang.id}
-                  onClick={() => setSelectedLanguageModal(lang)}
-                  className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 space-y-4 hover:border-violet-400 transition-all cursor-pointer group shadow-xs"
+                  onClick={() => setSelectedLanguageId(lang.id)}
+                  className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 space-y-4 hover:border-sky-400 dark:hover:border-sky-600 transition-all cursor-pointer group shadow-xs"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <span className="text-3xl">{lang.flag}</span>
                       <div>
-                        <h3 className="font-extrabold text-slate-900 dark:text-white text-base group-hover:text-violet-600 transition-colors">
+                        <h3 className="font-extrabold text-slate-900 dark:text-white text-base group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                           {lang.name}
                         </h3>
                         <span className="text-xs text-slate-400 font-bold">Nível {lang.level}</span>
                       </div>
                     </div>
-                    <span className="text-base font-black text-violet-600 dark:text-violet-400">{prog}%</span>
+                    <span className="text-base font-black text-sky-600 dark:text-sky-400">{prog}%</span>
                   </div>
 
                   <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
                     <div 
-                      className="bg-violet-600 h-full rounded-full transition-all duration-300"
+                      className="bg-sky-600 h-full rounded-full transition-all duration-300"
                       style={{ width: `${prog}%` }}
                     />
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 text-xs text-slate-400 group-hover:text-violet-500 font-bold">
+                  <div className="flex items-center justify-between pt-1 text-xs text-slate-400 group-hover:text-sky-500 font-bold">
                     <span>Ver Habilidades e Módulos</span>
                     <ChevronRight size={16} />
                   </div>
@@ -929,35 +1194,76 @@ export default function PersonalStudiesSection() {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-slate-500 block mb-1">Nome do Curso</label>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Nome do Curso *</label>
                 <input
                   type="text"
                   required
-                  placeholder="Ex: React Avançado"
+                  placeholder="Ex: React & TypeScript Masterclass"
                   value={newCourseName}
                   onChange={e => setNewCourseName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-violet-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 block mb-1">Plataforma</label>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Plataforma / Instituição</label>
                 <input
                   type="text"
-                  placeholder="Ex: Udemy, YouTube, Alura"
+                  placeholder="Ex: Udemy, YouTube, Alura, Coursera"
                   value={newCoursePlatform}
                   onChange={e => setNewCoursePlatform(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-violet-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 block mb-1">Instrutor (Opcional)</label>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Instrutor / Professor (Opcional)</label>
                 <input
                   type="text"
                   placeholder="Ex: Prof. Silva"
                   value={newCourseInstructor}
                   onChange={e => setNewCourseInstructor(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-violet-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500"
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Status de Conclusão</label>
+                <select
+                  value={newCourseStatus}
+                  onChange={e => setNewCourseStatus(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500"
+                >
+                  <option value="em_andamento">Em Andamento</option>
+                  <option value="concluido">Concluído</option>
+                  <option value="pausado">Pausado</option>
+                </select>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newCourseHasCertificate}
+                    onChange={e => setNewCourseHasCertificate(e.target.checked)}
+                    className="w-4 h-4 rounded-md accent-emerald-600 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                    <Award size={14} className="text-violet-500" />
+                    Foi emitido certificado de conclusão?
+                  </span>
+                </label>
+
+                {newCourseHasCertificate && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 block mb-1">Detalhes / Link do Certificado</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Certificado de 60 horas ou URL"
+                      value={newCourseCertificateNotes}
+                      onChange={e => setNewCourseCertificateNotes(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -971,7 +1277,7 @@ export default function PersonalStudiesSection() {
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 bg-violet-600 text-white font-bold text-xs rounded-xl shadow-xs hover:bg-violet-700"
+                className="px-5 py-2 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs hover:bg-emerald-700 cursor-pointer"
               >
                 Adicionar Curso
               </button>
@@ -1100,7 +1406,7 @@ export default function PersonalStudiesSection() {
                   <h3 className="text-xl font-black text-slate-900 dark:text-white">{selectedPlanModal.name}</h3>
                 </div>
               )}
-              <button onClick={() => { setSelectedPlanModal(null); setIsEditingPlan(false); setConfirmDeletePlanId(null); }} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => { setSelectedPlanId(null); setIsEditingPlan(false); setConfirmDeletePlanId(null); }} className="p-1 text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
@@ -1142,7 +1448,6 @@ export default function PersonalStudiesSection() {
                         if (newPlanModuleTitle.trim()) {
                           const newM: StudyModule = { id: Date.now().toString(), title: newPlanModuleTitle.trim(), topics: [] };
                           setPlans(prev => prev.map(p => p.id === selectedPlanModal.id ? { ...p, modules: [...p.modules, newM] } : p));
-                          setSelectedPlanModal(prev => prev ? { ...prev, modules: [...prev.modules, newM] } : null);
                           setNewPlanModuleTitle('');
                           setIsAddingPlanModule(false);
                         }
@@ -1162,7 +1467,7 @@ export default function PersonalStudiesSection() {
                   return (
                     <div
                       key={mod.id}
-                      onClick={() => setSelectedModuleInPlan(mod)}
+                      onClick={() => setSelectedModuleIdInPlan(mod.id)}
                       className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/60 dark:border-slate-800 hover:border-violet-400 cursor-pointer space-y-2 relative group"
                     >
                       <div className="flex items-center justify-between">
@@ -1173,7 +1478,6 @@ export default function PersonalStudiesSection() {
                             onClick={e => {
                               e.stopPropagation();
                               setPlans(prev => prev.map(p => p.id === selectedPlanModal.id ? { ...p, modules: p.modules.filter(m => m.id !== mod.id) } : p));
-                              setSelectedPlanModal(prev => prev ? { ...prev, modules: prev.modules.filter(m => m.id !== mod.id) } : null);
                             }}
                             className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
                             title="Excluir Módulo"
@@ -1216,7 +1520,7 @@ export default function PersonalStudiesSection() {
                 </button>
               )}
               <button
-                onClick={() => { setSelectedPlanModal(null); setIsEditingPlan(false); setConfirmDeletePlanId(null); }}
+                onClick={() => { setSelectedPlanId(null); setIsEditingPlan(false); setConfirmDeletePlanId(null); }}
                 className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
               >
                 Fechar
@@ -1238,7 +1542,7 @@ export default function PersonalStudiesSection() {
                 <span className="text-[10px] font-extrabold text-violet-500 uppercase tracking-widest">{selectedPlanModal.name}</span>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white">{selectedModuleInPlan.title}</h3>
               </div>
-              <button onClick={() => { setSelectedModuleInPlan(null); setIsAddingPlanTopic(false); }} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => { setSelectedModuleIdInPlan(null); setIsAddingPlanTopic(false); }} className="p-1 text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
@@ -1283,7 +1587,6 @@ export default function PersonalStudiesSection() {
                             ...p,
                             modules: p.modules.map(m => m.id === selectedModuleInPlan.id ? { ...m, topics: [...m.topics, newT] } : m)
                           } : p));
-                          setSelectedModuleInPlan(prev => prev ? { ...prev, topics: [...prev.topics, newT] } : null);
                           setNewPlanTopicTitle('');
                           setIsAddingPlanTopic(false);
                         }
@@ -1320,7 +1623,6 @@ export default function PersonalStudiesSection() {
                             ...p,
                             modules: p.modules.map(m => m.id === selectedModuleInPlan.id ? { ...m, topics: m.topics.filter(t => t.id !== topic.id) } : m)
                           } : p));
-                          setSelectedModuleInPlan(prev => prev ? { ...prev, topics: prev.topics.filter(t => t.id !== topic.id) } : null);
                         }}
                         className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
                         title="Excluir Assunto"
@@ -1334,7 +1636,7 @@ export default function PersonalStudiesSection() {
             </div>
 
             <button
-              onClick={() => { setSelectedModuleInPlan(null); setIsAddingPlanTopic(false); }}
+              onClick={() => { setSelectedModuleIdInPlan(null); setIsAddingPlanTopic(false); }}
               className="w-full py-2.5 bg-violet-600 text-white font-bold text-xs rounded-xl shadow-xs"
             >
               Voltar para Módulos
@@ -1342,288 +1644,116 @@ export default function PersonalStudiesSection() {
           </div>
         </div>
       )}
-
-      {/* ==================================================================== */}
-      {/* MODAL / LEVEL 2: DETALHES DO CURSO (REQ 13) */}
-      {/* ==================================================================== */}
       {selectedCourseModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto space-y-6 shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
             
-            {/* HEADER WITH EDIT TOGGLE */}
-            <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-              {isEditingCourse ? (
-                <div className="w-full space-y-2 pr-4">
-                  <input
-                    type="text"
-                    value={editCourseName}
-                    onChange={e => setEditCourseName(e.target.value)}
-                    placeholder="Nome do Curso"
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none"
-                  />
-                  <input
-                    type="text"
-                    value={editCoursePlatform}
-                    onChange={e => setEditCoursePlatform(e.target.value)}
-                    placeholder="Plataforma"
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none"
-                  />
-                  <input
-                    type="text"
-                    value={editCourseInstructor}
-                    onChange={e => setEditCourseInstructor(e.target.value)}
-                    placeholder="Instrutor"
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none"
-                  />
-                  <div className="flex gap-2">
-                    <button type="button" onClick={handleSaveEditedCourse} className="px-3 py-1 bg-violet-600 text-white font-bold text-xs rounded-lg">Salvar</button>
-                    <button type="button" onClick={() => setIsEditingCourse(false)} className="px-3 py-1 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-lg">Cancelar</button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-extrabold text-violet-500 uppercase tracking-widest">{selectedCourseModal.platform}</span>
-                    <button
-                      onClick={() => {
-                        setEditCourseName(selectedCourseModal.name);
-                        setEditCoursePlatform(selectedCourseModal.platform);
-                        setEditCourseInstructor(selectedCourseModal.instructor || '');
-                        setIsEditingCourse(true);
-                      }}
-                      className="p-1 text-slate-400 hover:text-violet-600"
-                      title="Editar Curso"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                  </div>
-                  <h3 className="text-xl font-black text-slate-900 dark:text-white">{selectedCourseModal.name}</h3>
-                  {selectedCourseModal.instructor && <p className="text-xs text-slate-400">Prof. {selectedCourseModal.instructor}</p>}
-                </div>
-              )}
-              <button onClick={() => { setSelectedCourseModal(null); setIsEditingCourse(false); setConfirmDeleteCourseId(null); }} className="p-1 text-slate-400 hover:text-slate-600">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="font-black text-slate-900 dark:text-white text-lg">Editar Curso</h3>
+              <button onClick={() => { setSelectedCourseId(null); setIsEditingCourse(false); }} className="p-1 text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
 
-            {/* COURSE MODULES & LESSONS */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-extrabold text-xs text-slate-900 dark:text-white uppercase tracking-wider">Módulos do Curso</h4>
-                {!isAddingCourseModule && (
-                  <button
-                    onClick={() => setIsAddingCourseModule(true)}
-                    className="text-xs font-bold text-violet-600 hover:underline flex items-center gap-1"
-                  >
-                    <Plus size={14} /> Add Módulo
-                  </button>
-                )}
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Nome do Curso *</label>
+                <input
+                  type="text"
+                  required
+                  value={editCourseName}
+                  onChange={e => setEditCourseName(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500"
+                />
               </div>
 
-              {isAddingCourseModule && (
-                <div className="p-3 bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 rounded-xl space-y-2">
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Plataforma / Instituição</label>
+                <input
+                  type="text"
+                  value={editCoursePlatform}
+                  onChange={e => setEditCoursePlatform(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Instrutor / Professor</label>
+                <input
+                  type="text"
+                  value={editCourseInstructor}
+                  onChange={e => setEditCourseInstructor(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Status de Conclusão</label>
+                <select
+                  value={editCourseStatus}
+                  onChange={e => setEditCourseStatus(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500"
+                >
+                  <option value="em_andamento">Em Andamento</option>
+                  <option value="concluido">Concluído</option>
+                  <option value="pausado">Pausado</option>
+                </select>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
-                    type="text"
-                    placeholder="Nome do módulo..."
-                    value={newCourseModuleTitle}
-                    onChange={e => setNewCourseModuleTitle(e.target.value)}
-                    className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none"
+                    type="checkbox"
+                    checked={editCourseHasCertificate}
+                    onChange={e => setEditCourseHasCertificate(e.target.checked)}
+                    className="w-4 h-4 rounded-md accent-emerald-600 cursor-pointer"
                   />
-                  <div className="flex gap-2 justify-end">
-                    <button
-                      type="button"
-                      onClick={() => { setIsAddingCourseModule(false); setNewCourseModuleTitle(''); }}
-                      className="px-3 py-1 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-lg"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (newCourseModuleTitle.trim()) {
-                          const newM: CourseModule = { id: Date.now().toString(), title: newCourseModuleTitle.trim(), lessons: [] };
-                          setCourses(prev => prev.map(c => c.id === selectedCourseModal.id ? { ...c, modules: [...c.modules, newM] } : c));
-                          setSelectedCourseModal(prev => prev ? { ...prev, modules: [...prev.modules, newM] } : null);
-                          setNewCourseModuleTitle('');
-                          setIsAddingCourseModule(false);
-                        }
-                      }}
-                      className="px-3 py-1 bg-violet-600 text-white font-bold text-xs rounded-lg shadow-xs"
-                    >
-                      Adicionar
-                    </button>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                    <Award size={14} className="text-violet-500" />
+                    Certificado de conclusão emitido?
+                  </span>
+                </label>
+
+                {editCourseHasCertificate && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 block mb-1">Detalhes / Link do Certificado</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Certificado de 60 horas ou URL"
+                      value={editCourseCertificateNotes}
+                      onChange={e => setEditCourseCertificateNotes(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500"
+                    />
                   </div>
-                </div>
-              )}
-
-              {selectedCourseModal.modules.map(mod => (
-                <div key={mod.id} className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/50 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h5 className="font-extrabold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wider">{mod.title}</h5>
-                    <div className="flex items-center gap-2">
-                      {addingLessonForModId !== mod.id && (
-                        <button
-                          onClick={() => { setAddingLessonForModId(mod.id); setNewLessonTitle(''); }}
-                          className="text-xs font-bold text-violet-600 hover:underline flex items-center gap-1"
-                        >
-                          <Plus size={12} /> Aula
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setCourses(prev => prev.map(c => c.id === selectedCourseModal.id ? { ...c, modules: c.modules.filter(m => m.id !== mod.id) } : c));
-                          setSelectedCourseModal(prev => prev ? { ...prev, modules: prev.modules.filter(m => m.id !== mod.id) } : null);
-                        }}
-                        className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
-                        title="Excluir Módulo"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {addingLessonForModId === mod.id && (
-                    <div className="p-2.5 bg-violet-100/50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 rounded-xl space-y-2">
-                      <input
-                        type="text"
-                        placeholder="Nome da aula..."
-                        value={newLessonTitle}
-                        onChange={e => setNewLessonTitle(e.target.value)}
-                        className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none"
-                      />
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          type="button"
-                          onClick={() => { setAddingLessonForModId(null); setNewLessonTitle(''); }}
-                          className="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[11px] rounded-lg"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (newLessonTitle.trim()) {
-                              const newL: CourseLesson = { id: Date.now().toString(), title: newLessonTitle.trim(), status: 'nao_iniciado' };
-                              setCourses(prev => prev.map(c => c.id === selectedCourseModal.id ? {
-                                ...c,
-                                modules: c.modules.map(m => m.id === mod.id ? { ...m, lessons: [...m.lessons, newL] } : m)
-                              } : c));
-                              setSelectedCourseModal(prev => prev ? {
-                                ...prev,
-                                modules: prev.modules.map(m => m.id === mod.id ? { ...m, lessons: [...m.lessons, newL] } : m)
-                              } : null);
-                              setNewLessonTitle('');
-                              setAddingLessonForModId(null);
-                            }
-                          }}
-                          className="px-2.5 py-1 bg-violet-600 text-white font-bold text-[11px] rounded-lg shadow-xs"
-                        >
-                          Adicionar Aula
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-1.5">
-                    {mod.lessons.map(lesson => (
-                      <div
-                        key={lesson.id}
-                        onClick={() => {
-                          const nextSt: Record<string, 'concluido' | 'em_andamento' | 'nao_iniciado'> = {
-                            'nao_iniciado': 'em_andamento',
-                            'em_andamento': 'concluido',
-                            'concluido': 'nao_iniciado'
-                          };
-                          const newStatus = nextSt[lesson.status];
-
-                          setCourses(prev => prev.map(c => {
-                            if (c.id !== selectedCourseModal.id) return c;
-                            return {
-                              ...c,
-                              modules: c.modules.map(m => m.id === mod.id ? {
-                                ...m,
-                                lessons: m.lessons.map(l => l.id === lesson.id ? { ...l, status: newStatus } : l)
-                              } : m)
-                            };
-                          }));
-
-                          setSelectedCourseModal(prev => prev ? {
-                            ...prev,
-                            modules: prev.modules.map(m => m.id === mod.id ? {
-                              ...m,
-                              lessons: m.lessons.map(l => l.id === lesson.id ? { ...l, status: newStatus } : l)
-                            } : m)
-                          } : null);
-                        }}
-                        className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs cursor-pointer select-none"
-                      >
-                        <span className={`font-semibold ${lesson.status === 'concluido' ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>
-                          {lesson.title}
-                        </span>
-
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md">
-                            {lesson.status === 'concluido' && '✓ Concluído'}
-                            {lesson.status === 'em_andamento' && '🟡 Em Andamento'}
-                            {lesson.status === 'nao_iniciado' && '○ Pendente'}
-                          </span>
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              setCourses(prev => prev.map(c => c.id === selectedCourseModal.id ? {
-                                ...c,
-                                modules: c.modules.map(m => m.id === mod.id ? { ...m, lessons: m.lessons.filter(l => l.id !== lesson.id) } : m)
-                              } : c));
-                              setSelectedCourseModal(prev => prev ? {
-                                ...prev,
-                                modules: prev.modules.map(m => m.id === mod.id ? { ...m, lessons: m.lessons.filter(l => l.id !== lesson.id) } : m)
-                              } : null);
-                            }}
-                            className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
-                            title="Excluir Aula"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
 
-            {/* CONFIRM DELETE INLINE OR DELETE BUTTON */}
-            <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800">
-              {confirmDeleteCourseId === selectedCourseModal.id ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-rose-600 font-bold">Excluir curso?</span>
-                  <button
-                    onClick={() => handleDeleteCourse(selectedCourseModal.id)}
-                    className="px-2.5 py-1 bg-rose-600 text-white font-bold text-xs rounded-lg shadow-xs"
-                  >
-                    Sim, excluir
-                  </button>
-                  <button
-                    onClick={() => setConfirmDeleteCourseId(null)}
-                    className="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-lg"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setConfirmDeleteCourseId(selectedCourseModal.id)}
-                  className="text-xs text-rose-500 hover:text-rose-600 flex items-center gap-1 font-bold"
-                >
-                  <Trash2 size={14} /> Excluir Curso
-                </button>
-              )}
+            <div className="flex items-center justify-between pt-2">
               <button
-                onClick={() => { setSelectedCourseModal(null); setIsEditingCourse(false); setConfirmDeleteCourseId(null); }}
-                className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                type="button"
+                onClick={() => handleDeleteCourse(selectedCourseModal.id)}
+                className="px-3 py-2 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition-colors cursor-pointer"
               >
-                Fechar Detalhes
+                Excluir Curso
               </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCourseId(null)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEditedCourse}
+                  className="px-5 py-2 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs hover:bg-emerald-700 cursor-pointer"
+                >
+                  Salvar
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1696,7 +1826,7 @@ export default function PersonalStudiesSection() {
                   </div>
                 </div>
               )}
-              <button onClick={() => { setSelectedLanguageModal(null); setIsEditingLanguage(false); setConfirmDeleteLangId(null); }} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => { setSelectedLanguageId(null); setIsEditingLanguage(false); setConfirmDeleteLangId(null); }} className="p-1 text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
@@ -1724,7 +1854,6 @@ export default function PersonalStudiesSection() {
                     onChange={e => {
                       const newV = parseInt(e.target.value);
                       setLanguages(prev => prev.map(l => l.id === selectedLanguageModal.id ? { ...l, skills: { ...l.skills, [sk.key]: newV } } : l));
-                      setSelectedLanguageModal(prev => prev ? { ...prev, skills: { ...prev.skills, [sk.key]: newV } } : null);
                     }}
                     className="w-full h-1.5 accent-violet-600 cursor-pointer"
                   />
@@ -1769,7 +1898,6 @@ export default function PersonalStudiesSection() {
                         if (newLangModuleTitle.trim()) {
                           const newM = { id: Date.now().toString(), title: newLangModuleTitle.trim(), topics: [] };
                           setLanguages(prev => prev.map(l => l.id === selectedLanguageModal.id ? { ...l, modules: [...l.modules, newM] } : l));
-                          setSelectedLanguageModal(prev => prev ? { ...prev, modules: [...prev.modules, newM] } : null);
                           setNewLangModuleTitle('');
                           setIsAddingLangModule(false);
                         }
@@ -1799,7 +1927,6 @@ export default function PersonalStudiesSection() {
                         <button
                           onClick={() => {
                             setLanguages(prev => prev.map(l => l.id === selectedLanguageModal.id ? { ...l, modules: l.modules.filter(m => m.id !== mod.id) } : l));
-                            setSelectedLanguageModal(prev => prev ? { ...prev, modules: prev.modules.filter(m => m.id !== mod.id) } : null);
                           }}
                           className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
                           title="Excluir Módulo"
@@ -1835,10 +1962,6 @@ export default function PersonalStudiesSection() {
                                   ...l,
                                   modules: l.modules.map(m => m.id === mod.id ? { ...m, topics: [...m.topics, newT] } : m)
                                 } : l));
-                                setSelectedLanguageModal(prev => prev ? {
-                                  ...prev,
-                                  modules: prev.modules.map(m => m.id === mod.id ? { ...m, topics: [...m.topics, newT] } : m)
-                                } : null);
                                 setNewLangTopicTitle('');
                                 setAddingTopicForLangModId(null);
                               }
@@ -1870,13 +1993,6 @@ export default function PersonalStudiesSection() {
                                 topics: m.topics.map(tp => tp.id === t.id ? { ...tp, status: newSt } : tp)
                               } : m)
                             } : l));
-                            setSelectedLanguageModal(prev => prev ? {
-                              ...prev,
-                              modules: prev.modules.map(m => m.id === mod.id ? {
-                                ...m,
-                                topics: m.topics.map(tp => tp.id === t.id ? { ...tp, status: newSt } : tp)
-                              } : m)
-                            } : null);
                           }}
                           className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded-lg text-xs cursor-pointer select-none"
                         >
@@ -1896,10 +2012,6 @@ export default function PersonalStudiesSection() {
                                   ...l,
                                   modules: l.modules.map(m => m.id === mod.id ? { ...m, topics: m.topics.filter(tp => tp.id !== t.id) } : m)
                                 } : l));
-                                setSelectedLanguageModal(prev => prev ? {
-                                  ...prev,
-                                  modules: prev.modules.map(m => m.id === mod.id ? { ...m, topics: m.topics.filter(tp => tp.id !== t.id) } : m)
-                                } : null);
                               }}
                               className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
                               title="Excluir Tópico"
@@ -1942,7 +2054,7 @@ export default function PersonalStudiesSection() {
                 </button>
               )}
               <button
-                onClick={() => { setSelectedLanguageModal(null); setIsEditingLanguage(false); setConfirmDeleteLangId(null); }}
+                onClick={() => { setSelectedLanguageId(null); setIsEditingLanguage(false); setConfirmDeleteLangId(null); }}
                 className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
               >
                 Fechar Detalhes

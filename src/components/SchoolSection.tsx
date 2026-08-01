@@ -225,7 +225,11 @@ const DEFAULT_TOPICS: DisciplineTopic[] = [
   { id: 't7', subjectId: 'portugues', title: 'Literatura: Romantismo', status: 'nao_iniciado' }
 ];
 
-export default function SchoolSection() {
+interface SchoolSectionProps {
+  onBackToDashboard?: () => void;
+}
+
+export default function SchoolSection({ onBackToDashboard }: SchoolSectionProps) {
   const [activeSubTab, setActiveSubTab] = useState<'escola' | 'disciplinas'>('escola');
   
   // STATE WITH LOCAL STORAGE PERSISTENCE
@@ -272,10 +276,18 @@ export default function SchoolSection() {
   });
 
   // MODALS & DETAIL SELECTION STATE
-  const [selectedSubjectModal, setSelectedSubjectModal] = useState<SchoolSubject | null>(null);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [selectedBimestreTab, setSelectedBimestreTab] = useState<number>(1);
 
-  const [selectedDisciplineModal, setSelectedDisciplineModal] = useState<SchoolSubject | null>(null);
+  // Table semester filter (1, 2, 3, 4) & collapsible row detail state
+  const [selectedSemester, setSelectedSemester] = useState<number>(1);
+  const [expandedSubjectId, setExpandedSubjectId] = useState<string | null>(null);
+
+  const [selectedDisciplineId, setSelectedDisciplineId] = useState<string | null>(null);
+
+  // Derived modal state - single source of truth
+  const selectedSubjectModal = subjects.find(s => s.id === selectedSubjectId) || null;
+  const selectedDisciplineModal = subjects.find(s => s.id === selectedDisciplineId) || null;
   
   // Edit schedule slot modal state
   const [editingSlot, setEditingSlot] = useState<{ day: 'seg' | 'ter' | 'qua' | 'qui' | 'sex'; period: 1 | 2 | 3 | 4 | 5 | 6; currentSubject: string } | null>(null);
@@ -403,20 +415,14 @@ export default function SchoolSection() {
 
   const handleDeleteSubject = (id: string) => {
     setSubjects(prev => prev.filter(s => s.id !== id));
-    if (selectedSubjectModal?.id === id) setSelectedSubjectModal(null);
-    if (selectedDisciplineModal?.id === id) setSelectedDisciplineModal(null);
+    if (selectedSubjectId === id) setSelectedSubjectId(null);
+    if (selectedDisciplineId === id) setSelectedDisciplineId(null);
     setConfirmDeleteSubjectId(null);
   };
 
   const handleUpdateSubjectDetails = (id: string, name: string, teacher: string) => {
     if (!name.trim()) return;
     setSubjects(prev => prev.map(s => s.id === id ? { ...s, name: name.trim(), teacher: teacher.trim() || 'Professor não especificado' } : s));
-    if (selectedSubjectModal?.id === id) {
-      setSelectedSubjectModal(prev => prev ? { ...prev, name: name.trim(), teacher: teacher.trim() || 'Professor não especificado' } : null);
-    }
-    if (selectedDisciplineModal?.id === id) {
-      setSelectedDisciplineModal(prev => prev ? { ...prev, name: name.trim(), teacher: teacher.trim() || 'Professor não especificado' } : null);
-    }
     setIsEditingSubject(false);
   };
 
@@ -434,21 +440,6 @@ export default function SchoolSection() {
         }
       };
     }));
-
-    // Update active modal reference if open
-    setSelectedSubjectModal(prev => {
-      if (!prev || prev.id !== subjectId) return prev;
-      return {
-        ...prev,
-        bimestres: {
-          ...prev.bimestres,
-          [bimestre]: {
-            nota: nota === null ? null : Math.min(10, Math.max(0, parseFloat(nota.toFixed(1)))),
-            faltas: Math.max(0, faltas)
-          }
-        }
-      };
-    });
   };
 
   // SCHEDULE SLOT HANDLER (REQS 6 & 7: Editar grade de horários simples)
@@ -499,6 +490,15 @@ export default function SchoolSection() {
       {/* HEADER SECTION & SUB-TABS */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-3xl shadow-xs">
         <div className="flex items-center gap-3">
+          {onBackToDashboard && (
+            <button 
+              onClick={onBackToDashboard}
+              className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 rounded-2xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+              title="Voltar ao Dashboard"
+            >
+              <span>← Dashboard</span>
+            </button>
+          )}
           <div className="p-2.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-2xl">
             <BookOpen size={22} />
           </div>
@@ -537,94 +537,26 @@ export default function SchoolSection() {
       </div>
 
       {/* ==================================================================== */}
-      {/* 1. SUB-ABA: ESCOLA (VISÃO RESUMIDA DA ESCOLA, MATÉRIAS E HORÁRIOS) */}
+      {/* 1. SUB-ABA: ESCOLA (HORÁRIOS PRIMEIRO + TABELA DE NOTAS POR SEMESTRE) */}
       {/* ==================================================================== */}
       {activeSubTab === 'escola' && (
         <div className="space-y-6">
           
-          {/* TOP SUMMARY CARDS (CLEAN & HIGH HIERARCHY - REQ 3) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-3xl shadow-xs space-y-1">
-              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block">📚 Escola</span>
-              <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">{subjects.length} <span className="text-xs font-normal text-slate-500">matérias</span></span>
-                <span className="text-xs font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-2.5 py-1 rounded-xl">Média: {getOverallAverage()}</span>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-3xl shadow-xs space-y-1">
-              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block">📅 Próximas Provas</span>
-              <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">{exams.filter(e => e.status !== 'concluida').length} <span className="text-xs font-normal text-slate-500">provas</span></span>
-                <span className="text-[11px] text-slate-400">Agendadas</span>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-3xl shadow-xs flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block">🕐 Grade de Horários</span>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Grade Semanal</span>
-              </div>
-              <a href="#grade-horarios" className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline">
-                Consultar →
-              </a>
-            </div>
-          </div>
-
-          {/* MATÉRIAS GRID (CARDS SIMPLES REQ 4) */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Matérias do Ano Letivo</h2>
-              <button
-                onClick={() => setIsAddingSubject(true)}
-                className="p-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5"
-              >
-                <Plus size={16} /> Nova Matéria
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {subjects.map(subject => {
-                const { media, situacao, statusBg } = calculateAverage(subject);
-
-                return (
-                  <div
-                    key={subject.id}
-                    onClick={() => { setSelectedSubjectModal(subject); setSelectedBimestreTab(1); }}
-                    className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 space-y-3 hover:border-sky-400 dark:hover:border-sky-600 transition-all cursor-pointer group shadow-xs"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="font-extrabold text-slate-900 dark:text-white text-base group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-                          {subject.name}
-                        </h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{subject.teacher}</p>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBg}`}>
-                        {situacao}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-                      <span className="text-slate-400 font-medium">Média Geral:</span>
-                      <span className="font-black text-slate-900 dark:text-white text-sm">{media}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* GRADE DE HORÁRIOS (SIMPLE WEEKLY GRID REQ 6 & 7) */}
+          {/* 1. GRADE DE HORÁRIOS (PRIMEIRA COISA AO CLICAR NA ABA ESCOLA) */}
           <div id="grade-horarios" className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">Grade de Horários</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Clique em qualquer horário para alterar a matéria</p>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 rounded-xl">
+                  <Clock size={18} />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Horário das Aulas (Grade Semanal)</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Clique em qualquer célula para definir ou alterar a aula</p>
+                </div>
               </div>
             </div>
 
-            {/* HORIZONTAL SCROLLABLE SCHEDULE TABLE */}
+            {/* HORIZONTAL SCHEDULE TABLE */}
             <div className="overflow-x-auto rounded-2xl border border-slate-200/60 dark:border-slate-800">
               <table className="w-full text-xs text-left">
                 <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-extrabold">
@@ -701,6 +633,209 @@ export default function SchoolSection() {
             </div>
           </div>
 
+          {/* 2. TABELA ÚNICA DE MATÉRIAS, NOTAS E FALTAS COM SELETOR DE SEMESTRES/BIMESTRES */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 space-y-6 shadow-xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Award size={20} className="text-sky-600 dark:text-sky-400" />
+                  Quadro de Notas e Faltas
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Selecione o semestre/bimestre para visualizar e editar as notas e faltas de todas as matérias</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsAddingSubject(true)}
+                  className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl text-xs font-extrabold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus size={15} /> Nova Matéria
+                </button>
+              </div>
+            </div>
+
+            {/* SELEÇÃO DE SEMESTRES / BIMESTRES */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {[1, 2, 3, 4].map(sem => (
+                <button
+                  key={sem}
+                  onClick={() => setSelectedSemester(sem)}
+                  className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap shadow-2xs flex items-center gap-2 ${
+                    selectedSemester === sem
+                      ? 'bg-sky-600 text-white shadow-sky-600/20'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Calendar size={14} />
+                  <span>{sem}º Semestre / Bimestre</span>
+                </button>
+              ))}
+            </div>
+
+            {/* TABELA DE MATÉRIAS DO SEMESTRE SELECIONADO */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-200/60 dark:border-slate-800">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-extrabold">
+                  <tr>
+                    <th className="p-3.5 min-w-[180px]">MATÉRIA</th>
+                    <th className="p-3.5 text-center w-36">NOTA ({selectedSemester}º SEM)</th>
+                    <th className="p-3.5 text-center w-36">FALTAS ({selectedSemester}º SEM)</th>
+                    <th className="p-3.5 text-center w-28">MÉDIA ANUAL</th>
+                    <th className="p-3.5 text-center w-32">SITUAÇÃO</th>
+                    <th className="p-3.5 text-center w-28">DETALHES</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {subjects.map(subject => {
+                    const bData = subject.bimestres[selectedSemester] || { nota: null, faltas: 0 };
+                    const { media, situacao, statusBg } = calculateAverage(subject);
+                    const isExpanded = expandedSubjectId === subject.id;
+                    const subTopics = topics.filter(t => t.subjectId === subject.id);
+                    const subExams = exams.filter(e => e.subjectId === subject.id && e.status !== 'concluida');
+
+                    return (
+                      <React.Fragment key={subject.id}>
+                        <tr className={`hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors ${isExpanded ? 'bg-sky-50/40 dark:bg-sky-950/20' : ''}`}>
+                          {/* MATÉRIA */}
+                          <td className="p-3.5 font-bold">
+                            <div className="text-slate-900 dark:text-white text-sm font-black">{subject.name}</div>
+                            <div className="text-[11px] font-medium text-slate-400">{subject.teacher}</div>
+                          </td>
+
+                          {/* NOTA INPUT */}
+                          <td className="p-3.5 text-center">
+                            <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl px-2 py-1">
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="10"
+                                placeholder="-"
+                                value={bData.nota !== null ? bData.nota : ''}
+                                onChange={e => {
+                                  const val = e.target.value === '' ? null : parseFloat(e.target.value);
+                                  handleUpdateGradeAndAbsences(subject.id, selectedSemester, val, bData.faltas);
+                                }}
+                                className="w-14 text-center bg-transparent font-black text-slate-900 dark:text-white outline-none text-xs"
+                              />
+                              <span className="text-[10px] text-slate-400 font-bold">/10</span>
+                            </div>
+                          </td>
+
+                          {/* FALTAS COUNTER */}
+                          <td className="p-3.5 text-center">
+                            <div className="inline-flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl px-2 py-1">
+                              <button
+                                onClick={() => handleUpdateGradeAndAbsences(subject.id, selectedSemester, bData.nota, Math.max(0, bData.faltas - 1))}
+                                className="w-5 h-5 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-black text-xs hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+                              >
+                                -
+                              </button>
+                              <span className="font-extrabold text-slate-900 dark:text-white min-w-[20px] text-center">
+                                {bData.faltas}
+                              </span>
+                              <button
+                                onClick={() => handleUpdateGradeAndAbsences(subject.id, selectedSemester, bData.nota, bData.faltas + 1)}
+                                className="w-5 h-5 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-black text-xs hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* MÉDIA ANUAL */}
+                          <td className="p-3.5 text-center font-black text-slate-900 dark:text-white text-sm">
+                            {media}
+                          </td>
+
+                          {/* SITUAÇÃO */}
+                          <td className="p-3.5 text-center">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${statusBg}`}>
+                              {situacao}
+                            </span>
+                          </td>
+
+                          {/* ACOES (EXPANDIR INFORMACÕES OCULTAS) */}
+                          <td className="p-3.5 text-center">
+                            <button
+                              onClick={() => setExpandedSubjectId(isExpanded ? null : subject.id)}
+                              className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer flex items-center gap-1 mx-auto ${
+                                isExpanded
+                                  ? 'bg-sky-600 text-white'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                              }`}
+                            >
+                              <span>{isExpanded ? 'Ocultar' : 'Ver Mais'}</span>
+                              <ChevronRight size={13} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                            </button>
+                          </td>
+                        </tr>
+
+                        {/* LINHA EXPANSÍVEL DE INFORMAÇÕES OCULTAS (REQ: ITEMS SHOULD NOT BE EXPLICIT / SHOULD BE HIDDEN) */}
+                        {isExpanded && (
+                          <tr className="bg-slate-50/80 dark:bg-slate-800/50">
+                            <td colSpan={6} className="p-4 border-t border-slate-200/40 dark:border-slate-800 space-y-3">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* TÓPICOS DE CONTEÚDO DA MATÉRIA */}
+                                <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/60 dark:border-slate-800 space-y-2">
+                                  <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-slate-200">
+                                    <span>Conteúdos & Tópicos</span>
+                                    <span className="text-[10px] text-slate-400">{subTopics.length} cadastrados</span>
+                                  </div>
+                                  {subTopics.length === 0 ? (
+                                    <p className="text-[11px] text-slate-400 italic">Nenhum tópico adicionado.</p>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      {subTopics.map(top => (
+                                        <div key={top.id} className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between p-1.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
+                                          <span>{top.title}</span>
+                                          <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase">{top.status.replace('_', ' ')}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* PRÓXIMAS PROVAS */}
+                                <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/60 dark:border-slate-800 space-y-2">
+                                  <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-slate-200">
+                                    <span>Próximas Provas</span>
+                                    <span className="text-[10px] text-amber-600 font-bold">{subExams.length} agendadas</span>
+                                  </div>
+                                  {subExams.length === 0 ? (
+                                    <p className="text-[11px] text-slate-400 italic">Sem provas agendadas.</p>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      {subExams.map(ex => (
+                                        <div key={ex.id} className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between p-1.5 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200/50">
+                                          <span>{ex.topic}</span>
+                                          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">{ex.date}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-end gap-2 pt-1">
+                                <button
+                                  onClick={() => { setSelectedSubjectId(subject.id); setSelectedBimestreTab(selectedSemester); }}
+                                  className="px-3 py-1.5 bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 rounded-xl text-xs font-bold hover:bg-sky-200 cursor-pointer"
+                                >
+                                  Editar Todos os Semestres e Anotações →
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       )}
 
@@ -722,7 +857,7 @@ export default function SchoolSection() {
               return (
                 <div
                   key={subject.id}
-                  onClick={() => setSelectedDisciplineModal(subject)}
+                  onClick={() => setSelectedDisciplineId(subject.id)}
                   className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 space-y-4 hover:border-sky-400 transition-all cursor-pointer shadow-xs group"
                 >
                   <div className="space-y-1">
@@ -808,7 +943,7 @@ export default function SchoolSection() {
                   <p className="text-xs text-slate-500 dark:text-slate-400">{selectedSubjectModal.teacher}</p>
                 </div>
               )}
-              <button onClick={() => { setSelectedSubjectModal(null); setIsEditingSubject(false); setConfirmDeleteSubjectId(null); }} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => { setSelectedSubjectId(null); setIsEditingSubject(false); setConfirmDeleteSubjectId(null); }} className="p-1 text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
@@ -920,7 +1055,7 @@ export default function SchoolSection() {
                 </button>
               )}
               <button
-                onClick={() => { setSelectedSubjectModal(null); setIsEditingSubject(false); setConfirmDeleteSubjectId(null); }}
+                onClick={() => { setSelectedSubjectId(null); setIsEditingSubject(false); setConfirmDeleteSubjectId(null); }}
                 className="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
               >
                 Salvar & Fechar
@@ -943,7 +1078,7 @@ export default function SchoolSection() {
                 <h3 className="text-xl font-black text-slate-900 dark:text-white">{selectedDisciplineModal.name}</h3>
                 <p className="text-xs text-slate-500">{selectedDisciplineModal.teacher}</p>
               </div>
-              <button onClick={() => { setSelectedDisciplineModal(null); setIsAddingTopic(false); setIsAddingExam(false); }} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => { setSelectedDisciplineId(null); setIsAddingTopic(false); setIsAddingExam(false); }} className="p-1 text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
@@ -1112,7 +1247,7 @@ export default function SchoolSection() {
             </div>
 
             <button
-              onClick={() => { setSelectedDisciplineModal(null); setIsAddingTopic(false); setIsAddingExam(false); }}
+              onClick={() => { setSelectedDisciplineId(null); setIsAddingTopic(false); setIsAddingExam(false); }}
               className="w-full py-2.5 bg-sky-600 text-white font-bold text-xs rounded-xl shadow-xs"
             >
               Fechar Detalhes

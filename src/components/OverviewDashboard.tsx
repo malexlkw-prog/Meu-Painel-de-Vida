@@ -7,7 +7,12 @@ import {
   Clock, 
   ArrowUpRight, 
   Sparkles, 
-  DollarSign
+  DollarSign,
+  Folder,
+  Dumbbell,
+  BookOpen,
+  GraduationCap,
+  ImageIcon
 } from 'lucide-react';
 import { PainelData } from '../types';
 import { getGiftReminders } from '../utils/dateUtils';
@@ -232,8 +237,92 @@ export default function OverviewDashboard({
             </div>
           </div>
 
+          {/* Indicator Card 2: Central de Projetos (PROJETOS) */}
+          <motion.div 
+            whileHover={{ y: -2 }}
+            onClick={() => setActiveTab('projects')}
+            className="bg-gradient-to-br from-sky-500 to-indigo-600 text-white rounded-3xl p-6 shadow-lg flex flex-col justify-between min-h-[180px] relative overflow-hidden group cursor-pointer"
+          >
+            <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-125 transition-transform" />
+            <div className="flex justify-between items-start relative z-10">
+              <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white">
+                <Folder size={22} />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full backdrop-blur-md">
+                NOVA ABA
+              </span>
+            </div>
+
+            <div className="space-y-1 relative z-10 text-left mt-4">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-sky-100 font-bold">workspace completo</span>
+              <h3 className="text-xl font-black text-white tracking-tight flex items-center justify-between">
+                <span>📁 Central de Projetos</span>
+                <ArrowUpRight size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+              </h3>
+              <p className="text-xs text-sky-100/90 font-medium line-clamp-2">
+                Canais do YouTube, Games, História, Softwares, Ideias, Metas & Kanbans.
+              </p>
+            </div>
+          </motion.div>
+
         </div>
 
+      </div>
+
+      {/* QUICK MODULE ACCESSIBILITY GRID */}
+      <div className="pt-4 space-y-3">
+        <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">
+          Acesso Rápido aos Módulos Principais
+        </h4>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <button
+            onClick={() => setActiveTab('projects')}
+            className="p-3.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/20 rounded-2xl flex items-center gap-2.5 font-black text-xs transition-all cursor-pointer shadow-2xs group"
+          >
+            <Folder size={18} className="text-sky-500 group-hover:scale-110 transition-transform" />
+            <span className="truncate">📁 Projetos</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('studies')}
+            className="p-3.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-500/20 rounded-2xl flex items-center gap-2.5 font-black text-xs transition-all cursor-pointer shadow-2xs group"
+          >
+            <BookOpen size={18} className="text-violet-500 group-hover:scale-110 transition-transform" />
+            <span className="truncate">🎓 Estudos</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('school')}
+            className="p-3.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 rounded-2xl flex items-center gap-2.5 font-black text-xs transition-all cursor-pointer shadow-2xs group"
+          >
+            <GraduationCap size={18} className="text-indigo-500 group-hover:scale-110 transition-transform" />
+            <span className="truncate">🏫 Escola</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('gym')}
+            className="p-3.5 bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-500/20 rounded-2xl flex items-center gap-2.5 font-black text-xs transition-all cursor-pointer shadow-2xs group"
+          >
+            <Dumbbell size={18} className="text-orange-500 group-hover:scale-110 transition-transform" />
+            <span className="truncate">💪 Treino</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('gallery')}
+            className="p-3.5 bg-pink-500/10 hover:bg-pink-500/20 text-pink-700 dark:text-pink-300 border border-pink-500/20 rounded-2xl flex items-center gap-2.5 font-black text-xs transition-all cursor-pointer shadow-2xs group"
+          >
+            <ImageIcon size={18} className="text-pink-500 group-hover:scale-110 transition-transform" />
+            <span className="truncate">🖼️ Galeria</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('finance')}
+            className="p-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 rounded-2xl flex items-center gap-2.5 font-black text-xs transition-all cursor-pointer shadow-2xs group"
+          >
+            <DollarSign size={18} className="text-emerald-500 group-hover:scale-110 transition-transform" />
+            <span className="truncate">💰 Finanças</span>
+          </button>
+        </div>
       </div>
 
     </div>
