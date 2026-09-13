@@ -12,7 +12,8 @@ import {
   Dumbbell,
   BookOpen,
   GraduationCap,
-  ImageIcon
+  ImageIcon,
+  ShoppingBag
 } from 'lucide-react';
 import { PainelData } from '../types';
 import { getGiftReminders } from '../utils/dateUtils';
@@ -249,7 +250,7 @@ export default function OverviewDashboard({
                 <Folder size={22} />
               </div>
               <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full backdrop-blur-md">
-                NOVA ABA
+                MODULO
               </span>
             </div>
 
@@ -274,7 +275,14 @@ export default function OverviewDashboard({
         <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">
           Acesso Rápido aos Módulos Principais
         </h4>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+          <button
+            onClick={() => setActiveTab('quero_comprar')}
+            className="p-3.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/20 rounded-2xl flex items-center gap-2.5 font-black text-xs transition-all cursor-pointer shadow-2xs group"
+          >
+            <ShoppingBag size={18} className="text-rose-500 group-hover:scale-110 transition-transform" />
+            <span className="truncate">👕 Quero Comprar</span>
+          </button>
           <button
             onClick={() => setActiveTab('projects')}
             className="p-3.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/20 rounded-2xl flex items-center gap-2.5 font-black text-xs transition-all cursor-pointer shadow-2xs group"
@@ -282,7 +290,6 @@ export default function OverviewDashboard({
             <Folder size={18} className="text-sky-500 group-hover:scale-110 transition-transform" />
             <span className="truncate">📁 Projetos</span>
           </button>
-
           <button
             onClick={() => setActiveTab('studies')}
             className="p-3.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-500/20 rounded-2xl flex items-center gap-2.5 font-black text-xs transition-all cursor-pointer shadow-2xs group"

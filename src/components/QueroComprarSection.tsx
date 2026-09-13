@@ -33,8 +33,17 @@ const CATEGORIES = [
 export default function QueroComprarSection({ data, onUpdateData, onClose }: QueroComprarSectionProps) {
   // Safe initial state setup
   const state: QueroComprarState = useMemo(() => {
-    return data.queroComprar || { items: [], people: [], customCategories: [], customSubCategories: {} };
-  }, [data.queroComprar]);
+    const qc: Partial<QueroComprarState> = data?.queroComprar || {};
+    return {
+      items: Array.isArray(qc.items) ? qc.items : [],
+      people: Array.isArray(qc.people) ? qc.people : [],
+      customCategories: Array.isArray(qc.customCategories) ? qc.customCategories : [],
+      customSubCategories: qc.customSubCategories || {},
+      customCategoriesList: Array.isArray(qc.customCategoriesList) ? qc.customCategoriesList : [],
+      deletedCategories: Array.isArray(qc.deletedCategories) ? qc.deletedCategories : [],
+      deletedSubCategories: qc.deletedSubCategories || {}
+    };
+  }, [data?.queroComprar]);
 
   // UI Views: 'home' | 'category' | 'people' | 'person_detail' | 'favorites' | 'all' | 'agenda'
   const [view, setView] = useState<'home' | 'category' | 'people' | 'person_detail' | 'favorites' | 'all' | 'agenda'>('home');

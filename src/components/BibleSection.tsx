@@ -35,7 +35,7 @@ export default function BibleSection({
   onChooseTab
 }: BibleSectionProps) {
   // Navigation
-  const [activeSubTab, setActiveSubTab] = useState<'home' | 'bible' | 'plans' | 'saved' | 'notes' | 'stats' | 'church' | 'prayers' | 'ministries' | 'agenda' | 'settings'>('home');
+  const [activeSubTab, setActiveSubTab] = useState<'home' | 'notes' | 'church' | 'ministries' | 'agenda' | 'settings'>('home');
   const [currentBook, setCurrentBook] = useState(bibleState?.currentBook || 'João');
   const [currentChapter, setCurrentChapter] = useState(1);
   const [translation, setTranslation] = useState<string>('NVI');
@@ -438,17 +438,8 @@ export default function BibleSection({
           </div>
 
           <div className="flex-1 overflow-y-auto px-2.5 py-3 space-y-1.5 scrollbar-thin text-left">
-            <button onClick={() => setActiveSubTab('bible')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-black transition-all ${activeSubTab === 'bible' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-350 hover:bg-slate-200/55 dark:hover:bg-slate-800/40'}`}>
-              <BookOpen size={14} /> <span>Bíblia</span>
-            </button>
-            <button onClick={() => setActiveSubTab('plans')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-black transition-all ${activeSubTab === 'plans' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-350 hover:bg-slate-200/55 dark:hover:bg-slate-800/40'}`}>
-              <BookMarked size={14} /> <span>Plano de Leitura</span>
-            </button>
             <button onClick={() => setActiveSubTab('notes')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-black transition-all ${activeSubTab === 'notes' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-350 hover:bg-slate-200/55 dark:hover:bg-slate-800/40'}`}>
               <FileText size={14} /> <span>Minhas Pregações</span>
-            </button>
-            <button onClick={() => setActiveSubTab('stats')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-black transition-all ${activeSubTab === 'stats' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-350 hover:bg-slate-200/55 dark:hover:bg-slate-800/40'}`}>
-              <BarChart3 size={14} /> <span>Estatísticas</span>
             </button>
             <div className="h-px bg-slate-200 dark:bg-slate-800 my-2.5 mx-2 opacity-50" />
             <button onClick={() => setActiveSubTab('church')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-black transition-all ${activeSubTab === 'church' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-350 hover:bg-slate-200/55 dark:hover:bg-slate-800/40'}`}>
@@ -486,27 +477,9 @@ export default function BibleSection({
               <h1 className="text-2xl font-black text-amber-600 dark:text-amber-400 font-display text-center">Igreja</h1>
             </div>
 
-            {/* Launchers Grid (7 items - streamlined & elegant, no square/verbose styling) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-4xl mt-6">
+            {/* Launchers Grid (4 items - streamlined & clean) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-4xl mt-6">
               
-              {/* Leitor */}
-              <button onClick={() => setActiveSubTab('bible')} className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-amber-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer">
-                <div className="flex justify-between items-start w-full">
-                  <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl"><BookOpen size={20} /></div>
-                  <span className="text-[10px] font-black bg-slate-150 dark:bg-slate-800 px-2.5 py-1 rounded-lg font-mono text-slate-600 dark:text-slate-300">{currentBook} {currentChapter}</span>
-                </div>
-                <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-amber-500 transition-colors">Bíblia</h3>
-              </button>
-
-              {/* Planos */}
-              <button onClick={() => setActiveSubTab('plans')} className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-amber-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer">
-                <div className="flex justify-between items-start w-full">
-                  <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl"><BookMarked size={20} /></div>
-                  <span className="text-[10px] font-black bg-indigo-50 dark:bg-indigo-950 px-2.5 py-1 rounded-lg font-mono text-indigo-600 dark:text-indigo-400">{calculatedProgressPercent}% Lido</span>
-                </div>
-                <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-amber-500 transition-colors">Plano de Leitura</h3>
-              </button>
-
               {/* Devocional -> Minhas Pregações */}
               <button onClick={() => setActiveSubTab('notes')} className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-amber-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer">
                 <div className="flex justify-between items-start w-full">
@@ -514,15 +487,6 @@ export default function BibleSection({
                   <span className="text-[10px] font-black bg-teal-50 dark:bg-teal-950 px-2.5 py-1 rounded-lg font-mono text-teal-600 dark:text-teal-400">{bibleState?.reflections?.length || 0} Ativas</span>
                 </div>
                 <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-amber-500 transition-colors">Minhas Pregações</h3>
-              </button>
-
-              {/* Estatísticas */}
-              <button onClick={() => setActiveSubTab('stats')} className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-amber-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer">
-                <div className="flex justify-between items-start w-full">
-                  <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl"><BarChart3 size={20} /></div>
-                  <span className="text-[10px] font-black bg-blue-50 dark:bg-blue-955 px-2.5 py-1 rounded-lg font-mono text-blue-650 dark:text-blue-400">{totalChaptersRead} Capítulos</span>
-                </div>
-                <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-amber-500 transition-colors">Estatísticas</h3>
               </button>
 
               {/* Projetos */}
@@ -544,7 +508,7 @@ export default function BibleSection({
               </button>
 
               {/* Agenda */}
-              <button onClick={() => setActiveSubTab('agenda')} className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-rose-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer mx-auto sm:mx-0 sm:col-span-2 lg:col-span-1">
+              <button onClick={() => setActiveSubTab('agenda')} className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-rose-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer">
                 <div className="flex justify-between items-start w-full">
                   <div className="p-3 bg-fuchsia-500/10 text-fuchsia-500 rounded-xl"><Calendar size={20} /></div>
                   <span className="text-[10px] font-black bg-fuchsia-50 dark:bg-fuchsia-955 px-2.5 py-1 rounded-lg font-mono text-fuchsia-650 dark:text-fuchsia-400">{(churchData?.events || []).length} Eventos</span>
@@ -565,13 +529,8 @@ export default function BibleSection({
                   <span>Voltar</span>
                 </button>
                 <span className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider font-display">
-                  {activeSubTab === 'bible' && `📖 Leitor Bíblico: ${currentBook} ${currentChapter}`}
-                  {activeSubTab === 'plans' && '📚 Plano de Leitura'}
-                  {activeSubTab === 'saved' && '🧠 Memorização & Salvos'}
-                  {activeSubTab === 'notes' && '🙏 Diário Devocional'}
-                  {activeSubTab === 'stats' && '📊 Estatísticas'}
-                  {activeSubTab === 'church' && '⛪ Igreja Central'}
-                  {activeSubTab === 'prayers' && '🤲 Clamor & Intercessão'}
+                  {activeSubTab === 'notes' && '🙏 Diário Devocional & Pregações'}
+                  {activeSubTab === 'church' && '⛪ Projetos'}
                   {activeSubTab === 'ministries' && '🎤 Escalas'}
                   {activeSubTab === 'agenda' && '📅 Agenda Litúrgica'}
                   {activeSubTab === 'settings' && '⚙️ Configurações'}
@@ -598,317 +557,6 @@ export default function BibleSection({
 
             {/* MAIN CONTENT BODY ROUTER */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 text-left">
-              
-              {/* BIBLE LEITOR */}
-              {activeSubTab === 'bible' && (
-                <div className="flex flex-col md:flex-row h-full overflow-hidden relative -m-4 md:-m-6">
-                  
-                  {/* Left books drawer for desktop */}
-                  <div className="hidden md:flex w-72 border-r border-slate-150 dark:border-slate-850 flex-col h-full overflow-hidden bg-slate-50/40 dark:bg-slate-900/5 select-none shrink-0">
-                    <div className="p-3 bg-slate-100/30 dark:bg-slate-900/20 border-b dark:border-slate-800 flex justify-between items-center">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Bíblia Sagrada</span>
-                      <select value={translation} onChange={(e) => setTranslation(e.target.value)} className="bg-white dark:bg-slate-800 text-xs font-bold border dark:border-slate-700 px-2 py-1 rounded">
-                        <option value="NVI">NVI</option>
-                        <option value="Almeida">Almeida</option>
-                      </select>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-2.5 space-y-4">
-                      <div>
-                        <span className="px-2 text-[9px] font-black uppercase tracking-wider text-amber-500 font-mono block mb-1">Antigo Testamento 📜</span>
-                        <div className="space-y-0.5">{BIBLE_BOOKS.slice(0, 39).map(renderBookItem)}</div>
-                      </div>
-                      <div>
-                        <span className="px-2 text-[9px] font-black uppercase tracking-wider text-indigo-505 font-mono block mb-1">Novo Testamento 🕊️</span>
-                        <div className="space-y-0.5">{BIBLE_BOOKS.slice(39).map(renderBookItem)}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right reader stage */}
-                  <div className="flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-slate-950">
-                    
-                    {/* Collapsible Reader Quick Settings (Kindle-style) */}
-                    <AnimatePresence>
-                      {showReaderSettings && (
-                        <motion.div 
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="border-b dark:border-slate-800 bg-slate-50 dark:bg-slate-900 overflow-hidden shrink-0"
-                        >
-                          <div className="p-4 grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
-                            <div className="space-y-1.5">
-                              <span className="text-[9px] font-black text-slate-400 uppercase font-mono block">Fundo Conforto</span>
-                              <div className="flex gap-1.5">
-                                {(['light', 'sepia', 'dark'] as const).map(bg => (
-                                  <button key={bg} onClick={() => setReaderBg(bg)} className={`px-2.5 py-1.5 rounded-lg border font-bold capitalize cursor-pointer ${readerBg === bg ? 'bg-amber-600 text-white border-amber-500' : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-stone-200'}`}>{bg}</button>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="space-y-1.5">
-                              <span className="text-[9px] font-black text-slate-400 uppercase font-mono block">Tipografia</span>
-                              <div className="flex gap-1.5">
-                                {(['sans', 'serif', 'mono'] as const).map(font => (
-                                  <button key={font} onClick={() => setFontStyle(font)} className={`px-2.5 py-1.5 rounded-lg border font-bold capitalize cursor-pointer ${fontStyle === font ? 'bg-amber-600 text-white' : 'bg-white dark:bg-slate-800'}`}>{font}</button>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="space-y-1.5">
-                              <span className="text-[9px] font-black text-slate-400 uppercase font-mono block">Tamanho da Letra: {fontSize}px</span>
-                              <div className="flex gap-1">
-                                <button onClick={() => setFontSize(Math.max(12, fontSize - 2))} className="px-2 py-1 bg-white dark:bg-slate-800 border rounded font-black">-</button>
-                                <button onClick={() => setFontSize(Math.min(30, fontSize + 2))} className="px-2 py-1 bg-white dark:bg-slate-800 border rounded font-black">+</button>
-                              </div>
-                            </div>
-                            <div className="space-y-1.5">
-                              <span className="text-[9px] font-black text-slate-400 uppercase font-mono block">Entrelinhamento</span>
-                              <div className="flex gap-1.5">
-                                {(['normal', 'relaxed', 'loose'] as const).map(lh => (
-                                  <button key={lh} onClick={() => setLineHeight(lh)} className={`px-2.5 py-1.5 rounded-lg border font-bold capitalize cursor-pointer ${lineHeight === lh ? 'bg-amber-600 text-white' : 'bg-white dark:bg-slate-800'}`}>{lh}</button>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Scripture Viewer */}
-                    <div className={`flex-1 overflow-y-auto p-5 md:p-8 select-text ${bgClasses[readerBg]} ${fontStyleClasses[fontStyle]} ${lhClasses[lineHeight]}`} style={{ fontSize: `${fontSize}px` }}>
-                      {loadingVerses ? (
-                        <div className="flex flex-col items-center justify-center h-full space-y-3">
-                          <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent animate-spin rounded-full" />
-                          <span className="text-xs font-bold text-slate-400">Carregando textos sagrados...</span>
-                        </div>
-                      ) : hasError ? (
-                        <div className="flex flex-col items-center justify-center h-full max-w-sm mx-auto text-center space-y-3 p-4">
-                          <AlertTriangle className="text-rose-500" size={28} />
-                          <p className="text-xs font-bold">Não foi possível obter esse capítulo na API da Bíblia.</p>
-                          <button onClick={fetchVerses} className="bg-amber-600 text-white text-xs font-black px-4 py-2 rounded-xl">Recarregar</button>
-                        </div>
-                      ) : (
-                        <div className="max-w-2xl mx-auto space-y-6 pb-20">
-                          <div className="leading-relaxed font-semibold">
-                            {verses.map(v => {
-                              const isSel = selectedVerseNumber === v.number;
-                              const hColor = highlights[`${currentBook}_${currentChapter}_${v.number}`];
-                              let highlightStyle = '';
-                              if (hColor === 'yellow') highlightStyle = 'bg-yellow-250/90 text-slate-900 border-l-2 border-yellow-500 pl-1.5 rounded-sm dark:text-slate-900';
-                              else if (hColor === 'green') highlightStyle = 'bg-emerald-100 dark:bg-emerald-950/40 border-l-2 border-emerald-500 pl-1.5 rounded-sm';
-                              else if (hColor === 'blue') highlightStyle = 'bg-sky-100 dark:bg-sky-950/40 border-l-2 border-sky-500 pl-1.5 rounded-sm';
-
-                              return (
-                                <span 
-                                  key={v.number} 
-                                  onClick={() => setSelectedVerseNumber(v.number)}
-                                  className={`inline-block px-1 py-0.5 rounded-lg cursor-pointer transition-all ${isSel ? 'outline-dashed outline-2 outline-amber-500 bg-amber-500/10' : 'hover:bg-slate-200/30 dark:hover:bg-slate-800/20'} ${highlightStyle}`}
-                                >
-                                  <sup className="text-[10px] font-black text-amber-600 mr-1 select-none">{v.number}</sup>
-                                  {v.text}{' '}
-                                </span>
-                              );
-                            })}
-                          </div>
-
-                          {/* Options floating context dialog */}
-                          {selectedVerseNumber !== null && (
-                            <motion.div 
-                              initial={{ opacity: 0, y: 15 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3.5 mt-6 text-xs text-left shadow-md"
-                            >
-                              <div className="flex justify-between items-center border-b dark:border-slate-800 pb-1.5">
-                                <span className="font-extrabold text-[10px] uppercase text-amber-500 font-mono">Opções para {currentBook} {currentChapter}:{selectedVerseNumber}</span>
-                                <button onClick={() => setSelectedVerseNumber(null)} className="text-slate-400 hover:text-slate-600"><X size={13} /></button>
-                              </div>
-
-                              <div className="flex flex-wrap gap-4 items-center">
-                                {/* Highlighter */}
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-black text-[9px] uppercase tracking-wider text-slate-400">Marcar:</span>
-                                  <div className="flex gap-1">
-                                    <button onClick={() => handleToggleHighlight('yellow')} className="w-4.5 h-4.5 bg-yellow-300 border border-transparent rounded-full hover:scale-110 cursor-pointer" />
-                                    <button onClick={() => handleToggleHighlight('green')} className="w-4.5 h-4.5 bg-emerald-400 border border-transparent rounded-full hover:scale-110 cursor-pointer" />
-                                    <button onClick={() => handleToggleHighlight('blue')} className="w-4.5 h-4.5 bg-sky-450 border border-transparent rounded-full hover:scale-110 cursor-pointer" />
-                                    <button onClick={() => handleToggleHighlight('')} className="w-4.5 h-4.5 bg-white border border-slate-300 text-[9px] flex items-center justify-center rounded-full hover:scale-110 text-slate-500 cursor-pointer">×</button>
-                                  </div>
-                                </div>
-
-                                {/* Save Favorite */}
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-black text-[9px] uppercase tracking-wider text-slate-400">Salvar:</span>
-                                  {collections.map(col => (
-                                    <button key={col} onClick={() => handleAddFavorite(col)} className="bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 font-black px-2 py-0.5 rounded-full text-[9px] transition-all">
-                                      + {col}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* Save devotional reflection */}
-                              <div className="space-y-1.5 pt-1">
-                                <label className="font-black text-[9px] text-slate-400 uppercase block">Escrever reflexão do diário:</label>
-                                <div className="flex gap-2">
-                                  <input 
-                                    type="text" 
-                                    placeholder="Minhas percepções e orações sobre essa verdade bíblica..." 
-                                    value={verseNoteText} 
-                                    onChange={(e) => setVerseNoteText(e.target.value)} 
-                                    className="flex-1 bg-white border border-slate-200 dark:bg-slate-800 dark:border-slate-700 px-3 h-9 rounded-lg font-bold outline-none text-xs dark:text-white"
-                                  />
-                                  <button onClick={handleSaveNote} className="bg-indigo-600 hover:bg-indigo-500 text-white font-black px-3.5 h-9 rounded-lg text-xs cursor-pointer shadow-3xs flex items-center gap-1"><Plus size={11} /> Gravar</button>
-                                </div>
-                              </div>
-
-                              {/* Action Buttons */}
-                              <div className="pt-1.5 border-t dark:border-slate-800 flex justify-between">
-                                <button onClick={handleCopyVerse} className="flex items-center gap-1 text-[9px] font-black uppercase text-indigo-500 hover:underline">
-                                  <Share2 size={11} /> <span>Copiar com Citação</span>
-                                </button>
-                              </div>
-                            </motion.div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Mobile float button */}
-                    <button onClick={() => setShowBooksSidebarMobile(true)} className="md:hidden fixed bottom-6 right-6 p-4 bg-amber-500 text-white rounded-full shadow-lg cursor-pointer flex items-center justify-center transition-transform active:scale-95 z-30">
-                      <BookOpen size={18} />
-                    </button>
-                  </div>
-
-                  {/* Backdrop overlay on mobile */}
-                  {showBooksSidebarMobile && (
-                    <div onClick={() => setShowBooksSidebarMobile(false)} className="fixed inset-0 bg-black/40 backdrop-blur-xs z-35 md:hidden" />
-                  )}
-
-                  {/* Mobile Drawer books list */}
-                  <div className={`md:hidden fixed inset-y-0 left-0 w-72 z-40 bg-white dark:bg-slate-900 shadow-xl flex flex-col transition-transform duration-300 ${showBooksSidebarMobile ? 'translate-x-0' : '-translate-x-full'}`}>
-                    <div className="p-3 bg-slate-105 border-b dark:border-slate-800 flex justify-between items-center">
-                      <span className="text-xs font-black uppercase text-amber-500 font-mono">Bíblia Sagrada</span>
-                      <button onClick={() => setShowBooksSidebarMobile(false)} className="p-1.5 text-slate-405"><X size={15} /></button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-4">
-                      <div>
-                        <span className="px-2 text-[9px] font-black uppercase tracking-wider text-amber-500 font-mono block mb-1">Antigo Testamento</span>
-                        <div className="space-y-0.5">{BIBLE_BOOKS.slice(0, 39).map(renderBookItem)}</div>
-                      </div>
-                      <div>
-                        <span className="px-2 text-[9px] font-black uppercase tracking-wider text-indigo-505 font-mono block mb-1">Novo Testamento</span>
-                        <div className="space-y-0.5">{BIBLE_BOOKS.slice(39).map(renderBookItem)}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-              )}
-
-              {/* PLANO DE LEITURA */}
-              {activeSubTab === 'plans' && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    
-                    {/* Dynamic Sequential Plan */}
-                    <div className="p-5 rounded-3xl bg-amber-500/5 border border-amber-500/20 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-black text-amber-800 dark:text-amber-400 uppercase font-mono">Bíblia Sequencial</span>
-                        <span className="text-[9px] bg-amber-100 dark:bg-amber-955 px-2.5 py-1 rounded-full text-amber-850 dark:text-amber-300 font-extrabold uppercase">Ativo</span>
-                      </div>
-                      <div className="space-y-1 text-left">
-                        <div className="flex justify-between text-xs font-bold">
-                          <span>Progressão do Velho ao Novo</span>
-                          <span>{calculatedProgressPercent}% Lido</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-amber-500 rounded-full" style={{ width: `${calculatedProgressPercent}%` }} />
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-450 leading-relaxed font-bold">Lê sistematicamente do Gênesis ao Apocalipse. Seu progresso é calculado a partir dos capítulos concluídos de cada livro.</p>
-                      <button onClick={() => { onSetReadingPlan('sequential'); alert('Plano Sequencial reestabelecido!'); }} className="text-[9px] w-full font-black uppercase text-slate-800 dark:text-white bg-white hover:bg-slate-50 dark:bg-slate-800 border py-2 rounded-xl transition-all shadow-3xs cursor-pointer">
-                        Reestabelecer Plano
-                      </button>
-                    </div>
-
-                    {/* Chronological Plan */}
-                    <div className="p-5 rounded-3xl bg-indigo-500/5 border border-indigo-500/20 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-black text-indigo-800 dark:text-indigo-400 uppercase font-mono">Leitura Cronológica</span>
-                        <span className="text-[9px] bg-indigo-100 dark:bg-indigo-955 px-2.5 py-1 rounded-full text-indigo-805 dark:text-indigo-300 font-extrabold uppercase">Histórico</span>
-                      </div>
-                      <div className="space-y-1 text-left">
-                        <div className="flex justify-between text-xs font-bold">
-                          <span>Eventos em ordem cronológica</span>
-                          <span>{Math.round(calculatedProgressPercent * 0.4)}% Lido</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.round(calculatedProgressPercent * 0.4)}%` }} />
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-450 leading-relaxed font-bold">Acompanha a linha histórica de registros no tempo dos eventos bíblicos.</p>
-                      <button onClick={() => { onSetReadingPlan('chronological'); alert('Plano Cronológico Ativado!'); }} className="text-[9px] w-full font-black uppercase text-slate-800 dark:text-white bg-white hover:bg-slate-50 dark:bg-slate-800 border py-2 rounded-xl transition-all shadow-3xs cursor-pointer">
-                        Ativar Plano Cronológico
-                      </button>
-                    </div>
-
-                  </div>
-
-                  {/* Manual Reading Registration Form */}
-                  <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4 text-left">
-                    <div className="border-b dark:border-slate-800 pb-2 flex items-center gap-2">
-                      <CheckCircle className="text-amber-500" size={18} />
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800 dark:text-white">Atualização Manual do Progresso 📖</h4>
-                        <p className="text-[10px] text-slate-400 leading-normal font-bold">Leu fisicamente fora do sistema? Registre aqui rapidamente o capítulo lido.</p>
-                      </div>
-                    </div>
-
-                    <form onSubmit={handleRegisterManualProgress} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase text-slate-400">Livro da Bíblia</label>
-                        <select 
-                          value={manualBook} 
-                          onChange={(e) => {
-                            setManualBook(e.target.value);
-                            setManualChapter(1);
-                          }}
-                          className="w-full bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 px-3 py-2 rounded-xl font-bold text-xs outline-none dark:text-white"
-                        >
-                          {BIBLE_BOOKS.map(b => (
-                            <option key={b.name} value={b.name}>{b.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase text-slate-400">Capítulo Lido</label>
-                        <select
-                          value={manualChapter}
-                          onChange={(e) => setManualChapter(parseInt(e.target.value))}
-                          className="w-full bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 px-3 py-2 rounded-xl font-bold text-xs outline-none dark:text-white"
-                        >
-                          {Array.from(
-                            { length: BIBLE_BOOKS.find(b => b.name === manualBook)?.chapters || 1 },
-                            (_, idx) => (
-                              <option key={idx + 1} value={idx + 1}>{idx + 1}</option>
-                            )
-                          )}
-                        </select>
-                      </div>
-
-                      <div className="flex items-end">
-                        <button 
-                          type="submit" 
-                          className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black text-xs py-2.5 rounded-xl shadow-3xs cursor-pointer uppercase transition-all"
-                        >
-                          Registrar como Lido
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-
-                </div>
-              )}
 
               {/* MINHAS PREGAÇÕES */}
               {activeSubTab === 'notes' && (

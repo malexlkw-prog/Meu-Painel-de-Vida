@@ -59,7 +59,6 @@ import PersonalStudiesSection from './components/PersonalStudiesSection';
 import ShoppingListSection from './components/ShoppingListSection';
 import TasksSection from './components/TasksSection';
 import ScheduleSection from './components/ScheduleSection';
-import MediaSection from './components/MediaSection';
 import MusicSection from './components/MusicSection';
 import BibleSection from './components/BibleSection';
 import RemindersSection from './components/RemindersSection';
@@ -439,11 +438,6 @@ const getPathsNeededForCurrentView = (tab: string, orgSub: string, finSub: strin
     if (studiesSub === 'school') return ['schoolSubjects'];
     if (studiesSub === 'gym') return ['gym.workouts', 'gym.goals', 'gym.measurements', 'gym.photos', 'gym.calendar'];
   }
-  if (tab === 'entertainment') {
-    if (entSub === 'movies' || entSub === 'series' || entSub === 'animes') return ['media'];
-    if (entSub === 'music') return ['music.tracks', 'music.artists'];
-    if (entSub === 'youtube') return ['youtube.saved', 'youtube.history', 'youtube.subscriptions'];
-  }
   if (tab === 'church') {
     return [
       'church.events',
@@ -459,7 +453,7 @@ const getPathsNeededForCurrentView = (tab: string, orgSub: string, finSub: strin
   if (tab === 'bible') {
     return ['bible.reflections', 'bible.history'];
   }
-  if (tab === 'wishlist') {
+  if (tab === 'wishlist' || tab === 'quero_comprar') {
     return ['queroComprar.items', 'queroComprar.people'];
   }
   if (tab === 'catalogs') {
@@ -511,6 +505,9 @@ export default function App() {
     }
     if (!parsed.catalogs || !parsed.catalogs.songs || parsed.catalogs.songs.length === 0) {
       parsed.catalogs = DEFAULT_CATALOGS_STATE;
+    }
+    if (!parsed.queroComprar) {
+      parsed.queroComprar = { items: [], people: [] };
     }
 
     // Run studies data migration / fallback initialization
@@ -2125,13 +2122,6 @@ export default function App() {
       }
     });
 
-    // Search movies/anime mídias
-    data.media.forEach(m => {
-      if (m.title.toLowerCase().includes(query) || m.notes.toLowerCase().includes(query)) {
-        results.push({ id: m.id, label: `📺 Filme/Anime: ${m.title}`, module: 'Mídias', tab: 'media' });
-      }
-    });
-
     // Search music
     data.music.tracks.forEach(track => {
       if (track.title.toLowerCase().includes(query) || track.artist.toLowerCase().includes(query)) {
@@ -2203,14 +2193,13 @@ export default function App() {
     { id: 'gallery', label: 'Galeria Pessoal', icon: ImageIcon, color: 'text-sky-500 font-extrabold' },
     { id: 'gym', label: 'Treino', icon: Dumbbell, color: 'text-orange-500' },
     { id: 'shoppingList', label: 'Lista de Compras', icon: ShoppingBag, color: 'text-rose-500' },
-    { id: 'quero_comprar', label: '👕 Quero Comprar', icon: ShoppingBag, color: 'text-pink-500 font-extrabold' },
+    { id: 'quero_comprar', label: '👕 Quero Comprar (Desejos & Roupas)', icon: ShoppingBag, color: 'text-pink-500 font-extrabold' },
     { id: 'tasks', label: 'Tarefas do Dia', icon: CheckSquare, color: 'text-indigo-400' },
     { id: 'schedule', label: 'Cronograma Diário', icon: Clock, color: 'text-cyan-500' },
     { id: 'studies', label: 'Estudos', icon: BookOpen, color: 'text-violet-500' },
     { id: 'calendar', label: 'Calendário', icon: Calendar, color: 'text-violet-500' },
     { id: 'notes', label: 'Notas', icon: FileText, color: 'text-amber-500' },
     { id: 'creativity', label: 'Criatividade', icon: Sparkles, color: 'text-pink-500' },
-    { id: 'media', label: 'Mídias (Filmes / Animes)', icon: Tv, color: 'text-emerald-500' },
     { id: 'music', label: 'Músicas & Artistas', icon: Music, color: 'text-pink-500' },
     { id: 'bible', label: 'Igreja', icon: Book, color: 'text-amber-500' },
     { id: 'catalogs', label: 'Catálogos', icon: Folder, color: 'text-indigo-500 font-extrabold' },
@@ -2242,19 +2231,6 @@ export default function App() {
           onCloseSete={() => setActiveTab('dashboard')} 
           siteData={getCompleteSiteData()}
           getLatestSiteData={handleGetLatestSiteData}
-        />
-        {renderTutorialOverlay()}
-      </div>
-    );
-  }
-
-  if (activeTab === 'quero_comprar') {
-    return (
-      <div className="h-screen w-screen overflow-y-auto bg-slate-50 dark:bg-slate-950 flex flex-col">
-        <QueroComprarSection 
-          data={data}
-          onUpdateData={(newData) => setData(newData)}
-          onClose={() => setActiveTab('dashboard')}
         />
         {renderTutorialOverlay()}
       </div>
@@ -2413,6 +2389,25 @@ export default function App() {
                   </span>
                 </div>
                 <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-cyan-500 transition-colors">Minhas Notas</h3>
+              </button>
+
+              {/* Quadro de Criatividades */}
+              <button 
+                onClick={() => {
+                  setActiveTab('creativity');
+                }} 
+                className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-pink-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer"
+              >
+                <div className="flex justify-between items-start w-full">
+                  <div className="p-3 bg-pink-500/10 text-pink-500 rounded-xl"><Sparkles size={20} /></div>
+                  <span className="text-[10px] font-black bg-slate-150 dark:bg-slate-800 px-2.5 py-1 rounded-lg font-mono text-slate-600 dark:text-slate-300">
+                    {data.creativityProjects?.length || 0} Projetos
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-pink-500 transition-colors">✨ Quadro de Criatividades</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium line-clamp-1">Mural visual, ideias & inspirações</p>
+                </div>
               </button>
 
               {/* Central de Projetos */}
@@ -2575,170 +2570,6 @@ export default function App() {
   }
 
 
-  /* 100% FULL-SCREEN APPLICATION INTERCEPT FOR ENTERTAINMENT */
-  if (activeTab === 'entertainment') {
-    return (
-      <div className="h-screen w-screen bg-slate-50 dark:bg-[#070b19] flex flex-col overflow-y-auto">
-        <div className="max-w-7xl mx-auto w-full px-4 pt-6 pb-4 md:px-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1 text-left w-full relative flex flex-col md:flex-row md:items-center justify-between">
-            <button 
-              onClick={() => {
-                if (activeEntSubTab === 'home') {
-                  setActiveTab('dashboard');
-                } else {
-                  setActiveEntSubTab('home');
-                }
-              }}
-              className="group inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-750 dark:text-slate-300 rounded-full text-xs font-bold border border-slate-200 dark:border-slate-800 shadow-2xs transition-all hover:translate-x-[-2px] self-start"
-            >
-              <ArrowLeft size={13} className="text-slate-500 group-hover:text-slate-755 dark:group-hover:text-white transition-colors" />
-              <span>{activeEntSubTab === 'home' ? 'Voltar ao Dashboard' : 'Voltar às Opções'}</span>
-            </button>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white text-center flex-1 md:absolute md:left-1/2 md:-translate-x-1/2">🎬 {getTabLabel('entertainment', 'Central de Entretenimento')}</h1>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto w-full px-4 py-4 md:px-8 flex-1">
-          {activeEntSubTab === 'home' ? (
-            <div className="flex flex-col items-center justify-center p-6 md:p-8 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-4xl mt-6">
-                
-                {/* Filmes */}
-                <button 
-                  onClick={() => setActiveEntSubTab('movies')} 
-                  className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-red-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer"
-                >
-                  <div className="flex justify-between items-start w-full">
-                    <div className="p-3 bg-red-500/10 text-red-500 rounded-xl"><Film size={20} /></div>
-                    <span className="text-[10px] font-black bg-slate-150 dark:bg-slate-800 px-2.5 py-1 rounded-lg font-mono text-slate-600 dark:text-slate-300">
-                      {data.media?.filter(m => m.type === 'movie').length || 0} Itens
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-red-500 transition-colors">Filmes</h3>
-                </button>
-
-                {/* Séries */}
-                <button 
-                  onClick={() => setActiveEntSubTab('series')} 
-                  className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-blue-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer"
-                >
-                  <div className="flex justify-between items-start w-full">
-                    <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl"><Tv size={20} /></div>
-                    <span className="text-[10px] font-black bg-slate-150 dark:bg-slate-800 px-2.5 py-1 rounded-lg font-mono text-slate-600 dark:text-slate-300">
-                      {data.media?.filter(m => m.type === 'series').length || 0} Itens
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-blue-500 transition-colors">Séries</h3>
-                </button>
-
-                {/* Animes */}
-                <button 
-                  onClick={() => setActiveEntSubTab('animes')} 
-                  className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-purple-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer"
-                >
-                  <div className="flex justify-between items-start w-full">
-                    <div className="p-3 bg-purple-500/10 text-purple-500 rounded-xl"><Sparkles size={20} /></div>
-                    <span className="text-[10px] font-black bg-slate-150 dark:bg-slate-800 px-2.5 py-1 rounded-lg font-mono text-slate-600 dark:text-slate-300">
-                      {data.media?.filter(m => m.type === 'anime').length || 0} Itens
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-purple-500 transition-colors">Animes</h3>
-                </button>
-
-                {/* Músicas */}
-                <button 
-                  onClick={() => setActiveEntSubTab('music')} 
-                  className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-green-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer"
-                >
-                  <div className="flex justify-between items-start w-full">
-                    <div className="p-3 bg-green-500/10 text-green-500 rounded-xl"><Music size={20} /></div>
-                    <span className="text-[10px] font-black bg-slate-150 dark:bg-slate-800 px-2.5 py-1 rounded-lg font-mono text-slate-600 dark:text-slate-300">
-                      {data.music?.tracks?.length || 0} Trilhas
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-green-500 transition-colors">Músicas</h3>
-                </button>
-
-                {/* Galeria */}
-                <button 
-                  onClick={() => setActiveEntSubTab('gallery')} 
-                  className="p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl text-left hover:border-pink-500 transition-all flex flex-col justify-between h-36 relative overflow-hidden group shadow-xs cursor-pointer"
-                >
-                  <div className="flex justify-between items-start w-full">
-                    <div className="p-3 bg-pink-500/10 text-pink-500 rounded-xl"><ImageIcon size={20} /></div>
-                    <span className="text-[10px] font-black bg-slate-150 dark:bg-slate-800 px-2.5 py-1 rounded-lg font-mono text-slate-600 dark:text-slate-300">Galeria</span>
-                  </div>
-                  <h3 className="text-sm font-black text-slate-800 dark:text-white group-hover:text-pink-500 transition-colors">Galeria</h3>
-                </button>
-
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white dark:bg-[#0f172a] border border-slate-200/60 dark:border-slate-800/85 rounded-3xl p-6 shadow-xs relative">
-              <div className="mb-4 flex justify-between items-center border-b dark:border-slate-800 pb-3">
-                <button 
-                  onClick={() => setActiveEntSubTab('home')} 
-                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl text-[10px] font-black transition-all flex items-center gap-1 border dark:border-slate-700 shadow-3xs cursor-pointer"
-                >
-                  <ArrowLeft size={11} className="text-pink-500 font-black" />
-                  <span>Voltar às Opções</span>
-                </button>
-                <span className="text-xs font-black uppercase text-pink-500 tracking-wider">
-                  {activeEntSubTab === 'movies' && 'Filmes'}
-                  {activeEntSubTab === 'series' && 'Séries'}
-                  {activeEntSubTab === 'animes' && 'Animes'}
-                  {activeEntSubTab === 'music' && 'Músicas'}
-                  {activeEntSubTab === 'gallery' && 'Galeria'}
-                </span>
-              </div>
-
-              {activeEntSubTab === 'movies' && (
-                <MediaSection 
-                  media={data.media || []} 
-                  defaultType="movie" 
-                  onAdd={addMediaItem} 
-                  onUpdate={updateMediaItem} 
-                  onDelete={deleteMediaItem} 
-                />
-              )}
-              {activeEntSubTab === 'series' && (
-                <MediaSection 
-                  media={data.media || []} 
-                  defaultType="series" 
-                  onAdd={addMediaItem} 
-                  onUpdate={updateMediaItem} 
-                  onDelete={deleteMediaItem} 
-                />
-              )}
-              {activeEntSubTab === 'animes' && (
-                <MediaSection 
-                  media={data.media || []} 
-                  defaultType="anime" 
-                  onAdd={addMediaItem} 
-                  onUpdate={updateMediaItem} 
-                  onDelete={deleteMediaItem} 
-                />
-              )}
-              {activeEntSubTab === 'music' && (
-                <MusicSection 
-                  music={data.music}
-                  onAddTrack={addMusicTrack}
-                  onDeleteTrack={deleteMusicTrack}
-                  onAddArtist={addMusicArtist}
-                  onDeleteArtist={deleteMusicArtist}
-                  onUpdateMetadata={updateMusicMetadata}
-                  onUpdateTrack={updateMusicTrack}
-                  onUpdateArtist={updateMusicArtist}
-                />
-              )}
-              {activeEntSubTab === 'gallery' && <GallerySection />}
-            </div>
-          )}
-        </div>
-        {renderTutorialOverlay()}
-      </div>
-    );
-  }
 
   /* 100% FULL-SCREEN APPLICATION INTERCEPT FOR STUDIES (ESTUDOS) */
   if (activeTab === 'studies') {
@@ -2752,13 +2583,15 @@ export default function App() {
     );
   }
 
-  /* 100% FULL-SCREEN APPLICATION INTERCEPT FOR PROJECTS (PROJETOS) */
-  if (activeTab === 'projects') {
+  /* 100% FULL-SCREEN APPLICATION INTERCEPT FOR QUERO COMPRAR (DESEJOS & WISHLIST) */
+  if (activeTab === 'quero_comprar' || activeTab === 'wishlist') {
     return (
-      <div className="min-h-screen w-screen bg-slate-50 dark:bg-[#070b19] flex flex-col overflow-y-auto">
-        <div className="max-w-7xl mx-auto w-full px-4 py-6 md:px-8 flex-1">
-          <ProjectsSection onBackToDashboard={() => setActiveTab('dashboard')} />
-        </div>
+      <div className="min-h-screen w-screen bg-slate-50 dark:bg-[#0b0f19] flex flex-col overflow-y-auto">
+        <QueroComprarSection 
+          data={data} 
+          onUpdateData={(newData) => setData(newData)} 
+          onClose={() => setActiveTab('dashboard')} 
+        />
         {renderTutorialOverlay()}
       </div>
     );
@@ -3454,17 +3287,17 @@ export default function App() {
               </div>
             )}
 
-            {/* ABA ESTUDO */}
-            {activeTab === 'studies' && (
-              <div className="w-full">
-                <PersonalStudiesSection onBackToDashboard={() => setActiveTab('dashboard')} />
-              </div>
-            )}
-
             {/* ABA PROJETOS */}
             {activeTab === 'projects' && (
               <div className="w-full">
                 <ProjectsSection onBackToDashboard={() => setActiveTab('dashboard')} />
+              </div>
+            )}
+
+            {/* ABA ESTUDO */}
+            {activeTab === 'studies' && (
+              <div className="w-full">
+                <PersonalStudiesSection onBackToDashboard={() => setActiveTab('dashboard')} />
               </div>
             )}
 
@@ -3494,188 +3327,18 @@ export default function App() {
               </div>
             )}
 
-            {/* 7. ENTERTAINMENT & GALERIAS */}
-            {activeTab === 'entertainment' && (
-              <div className="w-full space-y-6">
-                {activeEntSubTab === 'home' ? (
-                  <div className="space-y-8">
-                    {/* Header bar */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-6 dark:border-slate-800">
-                      <div className="space-y-1.5 text-left">
-                        <button 
-                          onClick={() => setActiveTab('dashboard')}
-                          className="bg-slate-105 hover:bg-slate-205 dark:bg-slate-800 dark:hover:bg-slate-755 px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-1.5 text-slate-800 dark:text-white border dark:border-slate-700/60 shadow-3xs mb-2"
-                        >
-                          <span className="text-amber-500 font-extrabold">&larr;</span>
-                          <span>Voltar ao Dashboard</span>
-                        </button>
-                        <h1 className="text-2xl font-black tracking-tight text-pink-600 dark:text-pink-400">🎬 {getTabLabel('entertainment', 'Central de Entretenimento')}</h1>
-                      </div>
-                    </div>
-
-                    {/* Smartphone Screen Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {/* 1. Filmes */}
-                      <motion.button
-                        whileHover={{ y: -4, scale: 1.01 }}
-                        whileTap={{ scale: 0.99 }}
-                        onClick={() => setActiveEntSubTab('movies')}
-                        className="p-6 text-left bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl transition-all duration-300 shadow-xs hover:border-rose-500/50 dark:hover:border-rose-500/50 flex flex-col justify-between h-36 relative overflow-hidden group cursor-pointer w-full"
-                      >
-                        <div className="w-full flex items-start justify-between">
-                          <div className="p-3 bg-rose-50 dark:bg-rose-955/20 text-rose-600 dark:text-rose-400 rounded-2xl group-hover:scale-110 transition-transform duration-300 border border-rose-100/30 dark:border-rose-500/10">
-                            <Film size={22} />
-                          </div>
-                          <span className="text-[10px] font-bold tracking-wider text-rose-600 dark:text-rose-400 bg-rose-50/80 dark:bg-rose-950/40 px-2.5 py-1 rounded-full border border-rose-100/20 dark:border-rose-500/5">
-                            {(data.media || []).filter(i => i.type === 'movie').length} filmes
-                          </span>
-                        </div>
-                        <div className="space-y-1 relative z-10">
-                          <h3 className="text-sm font-black text-slate-800 dark:text-white tracking-tight group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">Filmes</h3>
-                        </div>
-                      </motion.button>
-
-                      {/* 2. Séries */}
-                      <motion.button
-                        whileHover={{ y: -4, scale: 1.01 }}
-                        whileTap={{ scale: 0.99 }}
-                        onClick={() => setActiveEntSubTab('series')}
-                        className="p-6 text-left bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl transition-all duration-300 shadow-xs hover:border-violet-500/50 dark:hover:border-violet-500/50 flex flex-col justify-between h-36 relative overflow-hidden group cursor-pointer w-full"
-                      >
-                        <div className="w-full flex items-start justify-between">
-                          <div className="p-3 bg-violet-50 dark:bg-violet-950/40 text-violet-650 dark:text-violet-400 rounded-2xl group-hover:scale-110 transition-transform duration-300 border border-violet-100/30 dark:border-violet-500/10">
-                            <Tv size={22} />
-                          </div>
-                          <span className="text-[10px] font-bold tracking-wider text-violet-600 dark:text-violet-400 bg-violet-50/80 dark:bg-violet-950/40 px-2.5 py-1 rounded-full border border-violet-100/20 dark:border-violet-500/5">
-                            {(data.media || []).filter(i => i.type === 'series').length} séries
-                          </span>
-                        </div>
-                        <div className="space-y-1 relative z-10">
-                          <h3 className="text-sm font-black text-slate-800 dark:text-white tracking-tight group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">Séries</h3>
-                        </div>
-                      </motion.button>
-
-                      {/* 3. Animes */}
-                      <motion.button
-                        whileHover={{ y: -4, scale: 1.01 }}
-                        whileTap={{ scale: 0.99 }}
-                        onClick={() => setActiveEntSubTab('animes')}
-                        className="p-6 text-left bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl transition-all duration-300 shadow-xs hover:border-red-500/50 dark:hover:border-red-500/50 flex flex-col justify-between h-36 relative overflow-hidden group cursor-pointer w-full"
-                      >
-                        <div className="w-full flex items-start justify-between">
-                          <div className="p-3 bg-red-50 dark:bg-red-955/20 text-red-650 dark:text-red-400 rounded-2xl group-hover:scale-110 transition-transform duration-300 border border-red-100/30 dark:border-red-500/10">
-                            <Sparkles size={22} />
-                          </div>
-                          <span className="text-[10px] font-bold tracking-wider text-red-600 dark:text-red-450 bg-red-50/80 dark:bg-red-955/40 px-2.5 py-1 rounded-full border border-red-100/20 dark:border-red-500/5">
-                            {(data.media || []).filter(i => i.type === 'anime').length} animes
-                          </span>
-                        </div>
-                        <div className="space-y-1 relative z-10">
-                          <h3 className="text-sm font-black text-slate-800 dark:text-white tracking-tight group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">Animes</h3>
-                        </div>
-                      </motion.button>
-
-                      {/* 4. Músicas */}
-                      <motion.button
-                        whileHover={{ y: -4, scale: 1.01 }}
-                        whileTap={{ scale: 0.99 }}
-                        onClick={() => setActiveEntSubTab('music')}
-                        className="p-6 text-left bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl transition-all duration-300 shadow-xs hover:border-teal-500/50 dark:hover:border-teal-500/50 flex flex-col justify-between h-36 relative overflow-hidden group cursor-pointer w-full"
-                      >
-                        <div className="w-full flex items-start justify-between">
-                          <div className="p-3 bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 rounded-2xl group-hover:scale-110 transition-transform duration-300 border border-teal-100/30 dark:border-teal-500/10">
-                            <Music size={22} />
-                          </div>
-                          <span className="text-[10px] font-bold tracking-wider text-teal-650 dark:text-teal-400 bg-teal-50/80 dark:bg-teal-950/40 px-2.5 py-1 rounded-full border border-teal-100/20 dark:border-teal-500/5">
-                            {(data.music?.tracks || []).length} faixas
-                          </span>
-                        </div>
-                        <div className="space-y-1 relative z-10">
-                          <h3 className="text-sm font-black text-slate-800 dark:text-white tracking-tight group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">Músicas</h3>
-                        </div>
-                      </motion.button>
-
-                      {/* 5. Galeria */}
-                      <motion.button
-                        whileHover={{ y: -4, scale: 1.01 }}
-                        whileTap={{ scale: 0.99 }}
-                        onClick={() => setActiveEntSubTab('gallery')}
-                        className="p-6 text-left bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl transition-all duration-300 shadow-xs hover:border-sky-500/50 dark:hover:border-sky-500/50 flex flex-col justify-between h-36 relative overflow-hidden group cursor-pointer w-full"
-                      >
-                        <div className="w-full flex items-start justify-between">
-                          <div className="p-3 bg-sky-50 dark:bg-sky-950/40 text-sky-550 dark:text-sky-400 rounded-2xl group-hover:scale-110 transition-transform duration-300 border border-sky-100/30 dark:border-sky-500/10">
-                            <ImageIcon size={22} />
-                          </div>
-                          <span className="text-[10px] font-bold tracking-wider text-sky-600 dark:text-sky-400 bg-sky-50/80 dark:bg-sky-950/40 px-2.5 py-1 rounded-full border border-sky-100/20 dark:border-sky-500/5">
-                            Galeria
-                          </span>
-                        </div>
-                        <div className="space-y-1 relative z-10">
-                          <h3 className="text-sm font-black text-slate-800 dark:text-white tracking-tight group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">Galeria</h3>
-                        </div>
-                      </motion.button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Back Navigator bar */}
-                    <div className="flex items-center gap-3 bg-slate-100/55 dark:bg-slate-900/50 p-2.5 rounded-2xl border dark:border-slate-800">
-                      <button 
-                        onClick={() => setActiveEntSubTab('home')}
-                        className="bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-750 px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 text-slate-800 dark:text-white border dark:border-slate-700/60 shadow-3xs hover:scale-[1.02]"
-                      >
-                        <span className="text-pink-500 font-extrabold">&larr;</span>
-                        <span>Voltar para Entretenimento</span>
-                      </button>
-                      <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
-                      <span className="text-xs font-extrabold uppercase text-slate-450 tracking-wider">
-                        Ativo: {activeEntSubTab === 'movies' ? '🎬 Filmes' : activeEntSubTab === 'series' ? '📺 Séries' : activeEntSubTab === 'animes' ? '👺 Animes' : activeEntSubTab === 'music' ? '🎵 Músicas' : activeEntSubTab === 'gallery' ? '🖼️ Galeria' : 'Entretenimento'}
-                      </span>
-                    </div>
-
-                    <div className="w-full">
-                      {activeEntSubTab === 'movies' && (
-                        <MediaSection 
-                          media={(data.media || []).filter(i => i.type === 'movie')}
-                          onAdd={addMediaItem}
-                          onUpdate={updateMediaItem}
-                          onDelete={deleteMediaItem}
-                        />
-                      )}
-                      {activeEntSubTab === 'series' && (
-                        <MediaSection 
-                          media={(data.media || []).filter(i => i.type === 'series')}
-                          onAdd={addMediaItem}
-                          onUpdate={updateMediaItem}
-                          onDelete={deleteMediaItem}
-                        />
-                      )}
-                      {activeEntSubTab === 'animes' && (
-                        <MediaSection 
-                          media={(data.media || []).filter(i => i.type === 'anime')}
-                          onAdd={addMediaItem}
-                          onUpdate={updateMediaItem}
-                          onDelete={deleteMediaItem}
-                        />
-                      )}
-                      {activeEntSubTab === 'music' && (
-                        <MusicSection 
-                          music={data.music}
-                          onAddTrack={addMusicTrack}
-                          onDeleteTrack={deleteMusicTrack}
-                          onAddArtist={addMusicArtist}
-                          onDeleteArtist={deleteMusicArtist}
-                          onUpdateMetadata={updateMusicMetadata}
-                          onUpdateTrack={updateMusicTrack}
-                          onUpdateArtist={updateMusicArtist}
-                        />
-                      )}
-                      {activeEntSubTab === 'gallery' && <GallerySection />}
-                    </div>
-                  </div>
-                )}
+            {/* QUERO COMPRAR (DESEJOS & WISHLIST) */}
+            {(activeTab === 'quero_comprar' || activeTab === 'wishlist') && (
+              <div className="w-full">
+                <QueroComprarSection 
+                  data={data}
+                  onUpdateData={(newData) => setData(newData)}
+                  onClose={() => setActiveTab('dashboard')}
+                />
               </div>
             )}
+
+            {/* 7. ENTERTAINMENT & GALERIAS */}
 
             {/* 8. SISTEMA & CONFIGURAÇÃO */}
             {activeTab === 'system' && (

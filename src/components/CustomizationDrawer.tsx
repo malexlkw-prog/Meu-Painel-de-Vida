@@ -59,6 +59,7 @@ export interface TabConfig {
 
 const DEFAULT_TABS: TabConfig[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'Home', color: 'text-indigo-500', hidden: false, pinned: true, order: 0 },
+  { id: 'projects', label: 'Projetos', icon: 'Folder', color: 'text-sky-500 font-extrabold', hidden: false, pinned: true, order: 0.5 },
   { id: 'sete', label: 'Sete (Assistente IA)', icon: 'Sparkles', color: 'text-amber-500 font-black', hidden: false, pinned: true, order: 1 },
   { id: 'school', label: 'Escola', icon: 'BookOpen', color: 'text-sky-500 font-bold', hidden: false, pinned: false, order: 2.5 },
   { id: 'studies', label: 'Estudos', icon: 'GraduationCap', color: 'text-violet-500 font-bold', hidden: false, pinned: false, order: 2.8 },
@@ -69,13 +70,11 @@ const DEFAULT_TABS: TabConfig[] = [
   { id: 'calendar', label: 'Calendário', icon: 'Calendar', color: 'text-violet-500', hidden: false, pinned: false, order: 8 },
   { id: 'notes', label: 'Notas', icon: 'FileText', color: 'text-amber-500', hidden: false, pinned: false, order: 9 },
   { id: 'creativity', label: 'Criatividade', icon: 'Sparkles', color: 'text-pink-500', hidden: false, pinned: false, order: 10 },
-  { id: 'media', label: 'Mídias (Filmes / Animes)', icon: 'Tv', color: 'text-emerald-500', hidden: false, pinned: false, order: 11 },
   { id: 'music', label: 'Músicas & Artistas', icon: 'Music', color: 'text-pink-500', hidden: false, pinned: false, order: 12 },
   { id: 'bible', label: 'Igreja', icon: 'Book', color: 'text-amber-500', hidden: false, pinned: false, order: 13 },
   { id: 'church', label: 'Vida na Igreja', icon: 'Church', color: 'text-rose-600', hidden: false, pinned: false, order: 14 },
   { id: 'reminders', label: 'Lembretes & Alertas', icon: 'Bell', color: 'text-amber-400', hidden: false, pinned: false, order: 15 },
   { id: 'finance', label: 'Controle Financeiro', icon: 'DollarSign', color: 'text-emerald-400', hidden: false, pinned: false, order: 16 },
-  { id: 'quero_comprar', label: '👕 Quero Comprar', icon: 'ShoppingBag', color: 'text-pink-500 font-extrabold', hidden: false, pinned: false, order: 17 },
   { id: 'settings', label: 'Sistema & Segurança', icon: 'Settings', color: 'text-slate-500', hidden: false, pinned: false, order: 18 }
 ];
 
