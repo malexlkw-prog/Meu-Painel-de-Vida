@@ -54,18 +54,6 @@ const STEPS: Step[] = [
     text: 'Aqui você acompanha sua leitura bíblica, planos de leitura e organiza seus compromissos da igreja.'
   },
   {
-    id: 'entertainment',
-    tabId: 'entertainment',
-    title: '🎬 Entretenimento',
-    text: 'Aqui você organiza filmes, séries, animes, músicas e outros conteúdos.'
-  },
-  {
-    id: 'catalogs',
-    tabId: 'catalogs',
-    title: '📂 Catálogos',
-    text: 'Aqui você organiza informações como repertórios da igreja, livros, filmes, músicas e qualquer outro catálogo personalizado.'
-  },
-  {
     id: 'sete',
     tabId: 'sete',
     title: '🤖 Sete IA',

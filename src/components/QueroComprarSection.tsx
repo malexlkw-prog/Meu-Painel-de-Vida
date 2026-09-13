@@ -4,7 +4,7 @@ import {
   Shirt, Watch, Gift, Heart, ShoppingBag, Smartphone, Gamepad2, 
   Briefcase, Sparkles, Backpack, Trash2, Edit3, Plus, Search, 
   Filter, ArrowLeft, ExternalLink, Star, Check, X, ChevronRight, 
-  MoreVertical, Calendar, Store, Link as LinkIcon, User, Layers, Info, Trash, Copy, Upload
+  MoreVertical, Calendar, Store, Link as LinkIcon, User, Layers, Info, Trash, Copy, Upload, FileText
 } from 'lucide-react';
 import { PainelData, WishlistItem, GiftPerson, QueroComprarState, CustomCategory, SpecialDate } from '../types';
 import { getDaysUntil } from '../utils/dateUtils';
@@ -25,6 +25,7 @@ const CATEGORIES = [
   { id: 'games', name: 'Games', icon: Gamepad2, desc: 'Consoles, mouses, teclados gamer e jogos.', color: 'text-violet-500 bg-violet-50 dark:bg-violet-950/40' },
   { id: 'personal', name: 'Objetos Pessoais', icon: User, desc: 'Perfumes, cosméticos, fones, celulares e livros.', color: 'text-pink-500 bg-pink-50 dark:bg-pink-950/40', defaultTypes: ['Perfumes', 'Relógios', 'Carteiras', 'Mochilas', 'Óculos', 'Fones', 'Celulares', 'Tablets', 'Livros'] },
   { id: 'professional', name: 'Artigos Profissionais', icon: Briefcase, desc: 'Equipamentos de trabalho, impressoras e ferramentas.', color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40', defaultTypes: ['Impressoras', 'Computadores', 'Equipamentos', 'Materiais', 'Ferramentas'] },
+  { id: 'papelaria', name: 'Lista Papelaria', icon: FileText, desc: 'Cadernos, canetas, agendas, materiais e artigos de papelaria.', color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40', defaultSubs: ['Cadernos', 'Canetas', 'Marca-texto', 'Agendas & Planners', 'Papéis & Blocos', 'Acessórios'] },
   { id: 'gifts', name: 'Presentes', icon: Gift, desc: 'Controle de presentes e surpresas para familiares e amigos.', color: 'text-purple-500 bg-purple-50 dark:bg-purple-950/40' },
   { id: 'favorites', name: 'Favoritos', icon: Heart, desc: 'Desejos mais cobiçados de todas as categorias.', color: 'text-red-500 bg-red-50 dark:bg-red-950/40' },
   { id: 'all', name: 'Todos os Desejos', icon: ShoppingBag, desc: 'Lista global unificada para pesquisa e filtros rápidos.', color: 'text-slate-500 bg-slate-50 dark:bg-slate-950/40' }
@@ -94,6 +95,7 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
   const [storeFilter, setStoreFilter] = useState<string>('all');
   const [priceSort, setPriceSort] = useState<'asc' | 'desc' | ''>('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Modals & Action States
   const [showItemModal, setShowItemModal] = useState(false);
@@ -475,10 +477,31 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
     return [...defaultT, ...custom];
   }, [state.customSubCategories, mergedCategories]);
 
+  // Helper to identify Lista Papelaria
+  const isPapelariaCategory = (catIdOrName?: string) => {
+    if (!catIdOrName) return false;
+    const lower = catIdOrName.toLowerCase().trim();
+    if (lower === 'papelaria' || lower === 'lista papelaria' || lower.includes('papelaria')) return true;
+    const found = mergedCategories.find(c => c.id === catIdOrName);
+    if (found && (found.name.toLowerCase().includes('papelaria') || found.id.toLowerCase().includes('papelaria'))) return true;
+    return false;
+  };
+
+  // Subcategories for any category selected in form
+  const categorySubcategoriesForForm = useMemo(() => {
+    if (!formCategory) return [];
+    const cat = mergedCategories.find(c => c.id === formCategory);
+    const defaultSubs = cat?.defaultSubs || CATEGORIES.find(c => c.id === formCategory)?.defaultSubs || [];
+    const custom = state.customSubCategories?.[formCategory] || [];
+    const combined = [...defaultSubs, ...custom];
+    const deletedSubs = state.deletedSubCategories?.[formCategory] || [];
+    return combined.filter(s => !deletedSubs.includes(s));
+  }, [formCategory, mergedCategories, state.customSubCategories, state.deletedSubCategories]);
+
   // ADD CUSTOM SUBCATEGORY
   const handleAddSubCategory = () => {
     if (!newSubCatName.trim()) return;
-    const catKey = selectedCategoryId || 'clothes';
+    const catKey = selectedCategoryId || formCategory || 'clothes';
     updateModuleState(prev => {
       const currentMap = prev.customSubCategories || {};
       const list = currentMap[catKey] || [];
@@ -501,25 +524,25 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
     if (!formName.trim()) return;
 
     const parsedPrice = parseFloat(formPrice) || 0;
-
     const targetCategory = formCategory;
+    const isPapelaria = isPapelariaCategory(targetCategory);
 
     const itemData: WishlistItem = {
       id: editingItem?.id || Math.random().toString(36).substring(2, 9),
       name: formName.trim(),
-      description: formDesc.trim() || undefined,
+      description: isPapelaria ? undefined : (formDesc.trim() || undefined),
       price: parsedPrice,
-      store: formStore.trim() || undefined,
+      store: isPapelaria ? undefined : (formStore.trim() || undefined),
       link: formLink.trim() || undefined,
       dateAdded: editingItem?.dateAdded || new Date().toISOString().split('T')[0],
       priority: formPriority,
-      desireLevel: formDesireLevel,
-      size: formSize.trim() || undefined,
-      color: formColor.trim() || undefined,
-      notes: formNotes.trim() || undefined,
-      status: formStatus,
+      desireLevel: isPapelaria ? 3 : formDesireLevel,
+      size: isPapelaria ? undefined : (formSize.trim() || undefined),
+      color: isPapelaria ? undefined : (formColor.trim() || undefined),
+      notes: isPapelaria ? undefined : (formNotes.trim() || undefined),
+      status: isPapelaria ? 'want' : formStatus,
       category: targetCategory,
-      subCategory: targetCategory === 'clothes' ? formSubCategory : undefined,
+      subCategory: formSubCategory ? formSubCategory.trim() : undefined,
       personalType: targetCategory === 'personal' ? formPersonalType : undefined,
       professionalType: targetCategory === 'professional' ? formProfessionalType : undefined,
       giftPersonId: targetCategory === 'gifts' ? formGiftPersonId : undefined,
@@ -970,6 +993,20 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
 
               {/* Category / Subcategory Actions */}
               <div className="flex items-center gap-2">
+                {/* Lupa button to open/toggle search and filters */}
+                <button
+                  onClick={() => setIsSearchOpen(prev => !prev)}
+                  className={`p-2.5 rounded-xl border transition-all flex items-center justify-center cursor-pointer shadow-3xs hover:scale-105 active:scale-95 ${
+                    isSearchOpen || searchQuery || statusFilter !== 'all' || priorityFilter !== 'all' || storeFilter !== 'all' || priceSort
+                      ? 'bg-pink-50 dark:bg-pink-950/40 border-pink-300 dark:border-pink-800 text-pink-650 dark:text-pink-400'
+                      : 'bg-white dark:bg-[#111726] border-slate-200 dark:border-slate-800 text-slate-500 hover:text-pink-600 dark:hover:text-pink-400'
+                  }`}
+                  title={isSearchOpen ? "Fechar busca e filtros" : "Pesquisar e filtrar"}
+                  aria-label="Pesquisar e filtrar"
+                >
+                  <Search size={15} />
+                </button>
+
                 {view !== 'home' && view !== 'agenda' && (
                   <button
                     onClick={() => {
@@ -984,7 +1021,6 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                     <Plus size={14} /> Adicionar Item
                   </button>
                 )}
-
               </div>
             </div>
 
@@ -1009,117 +1045,158 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                   </button>
                 ))}
                 
-                {/* Nova Subcategoria Button placed here inside the subcategories box! */}
+                {/* Botão de + para nova subcategoria em todas as categorias */}
                 <button
                   onClick={() => setShowAddSubCatModal(true)}
-                  className="ml-auto px-4 py-2 rounded-xl text-xs font-black uppercase bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/45 dark:hover:bg-pink-900/60 text-pink-650 dark:text-pink-400 border border-pink-100/30 dark:border-pink-900/40 transition-all flex items-center gap-1 cursor-pointer"
-                  title="Criar nova subcategoria nesta seção"
+                  className="ml-auto p-2 rounded-xl text-xs font-black bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/45 dark:hover:bg-pink-900/60 text-pink-650 dark:text-pink-400 border border-pink-200/50 dark:border-pink-900/40 transition-all flex items-center justify-center cursor-pointer shadow-3xs hover:scale-105 active:scale-95"
+                  title="Nova Subcategoria"
+                  aria-label="Nova Subcategoria"
                 >
-                  <Plus size={13} /> Nova Subcategoria
+                  <Plus size={15} />
                 </button>
               </div>
             )}
 
-            {/* SEARCH AND FILTERS TOOLBAR */}
-            <div className="bg-white dark:bg-[#111726] border border-slate-150 dark:border-slate-850 p-4 rounded-3xl shadow-3xs space-y-3">
-              <div className="flex flex-col md:flex-row gap-3">
-                
-                {/* Search field */}
-                <div className="flex-1 relative">
-                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Pesquisar desejos por nome, loja, marca, cor, observações..."
-                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-[#111726] text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                  />
+            {/* SEARCH AND FILTERS: LUPA TOGGLE */}
+            {!isSearchOpen ? (
+              <div className="flex justify-end items-center">
+                <button
+                  onClick={() => setIsSearchOpen(true)}
+                  className={`p-2.5 rounded-2xl border transition-all flex items-center gap-2 cursor-pointer shadow-3xs hover:scale-105 active:scale-95 ${
+                    searchQuery || statusFilter !== 'all' || priorityFilter !== 'all' || storeFilter !== 'all' || priceSort
+                      ? 'bg-pink-50 dark:bg-pink-950/40 border-pink-300 dark:border-pink-800 text-pink-650 dark:text-pink-400'
+                      : 'bg-white dark:bg-[#111726] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-pink-600 hover:border-pink-300'
+                  }`}
+                  title="Clique para pesquisar e filtrar"
+                  aria-label="Pesquisar e filtrar"
+                >
+                  <Search size={18} />
                   {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 dark:hover:text-white">
-                      <X size={14} />
-                    </button>
+                    <span className="text-xs font-bold text-pink-600 dark:text-pink-400 max-w-[140px] truncate">
+                      "{searchQuery}"
+                    </span>
                   )}
-                </div>
-
-                {/* Filter buttons */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    className={`px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 border ${isFilterOpen ? 'bg-pink-50 border-pink-200 text-pink-700 dark:bg-pink-950/40 dark:border-pink-900/60 dark:text-pink-400' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'}`}
-                  >
-                    <Filter size={14} /> Filtrar {isFilterOpen ? 'Fechar' : 'Abrir'}
-                  </button>
-
-                  <select
-                    value={priceSort}
-                    onChange={(e: any) => setPriceSort(e.target.value)}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none"
-                  >
-                    <option value="">Ordenar Valor</option>
-                    <option value="asc">Menor Preço</option>
-                    <option value="desc">Maior Preço</option>
-                  </select>
-                </div>
+                  {(statusFilter !== 'all' || priorityFilter !== 'all' || storeFilter !== 'all' || priceSort) && (
+                    <span className="w-2 h-2 rounded-full bg-pink-500" />
+                  )}
+                </button>
               </div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="bg-white dark:bg-[#111726] border border-slate-150 dark:border-slate-850 p-4 rounded-3xl shadow-3xs space-y-3"
+              >
+                <div className="flex flex-col md:flex-row gap-3">
+                  
+                  {/* Search field */}
+                  <div className="flex-1 relative">
+                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      autoFocus
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Pesquisar desejos por nome, loja, marca, cor, observações..."
+                      className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-[#111726] text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    />
+                    {searchQuery && (
+                      <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 dark:hover:text-white">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
 
-              {/* Collapsible advanced filters */}
-              <AnimatePresence>
-                {isFilterOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-slate-100 dark:border-slate-850 overflow-hidden"
-                  >
-                    {/* Status Filter */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Filtrar por Status</label>
-                      <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
-                      >
-                        <option value="all">Todos os Status</option>
-                        <option value="want">Quero Comprar</option>
-                        <option value="buying">Comprando</option>
-                        <option value="bought">Comprado</option>
-                        <option value="cancelled">Cancelado</option>
-                      </select>
-                    </div>
+                  {/* Filter buttons */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsFilterOpen(!isFilterOpen)}
+                      className={`px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 border ${isFilterOpen ? 'bg-pink-50 border-pink-200 text-pink-700 dark:bg-pink-950/40 dark:border-pink-900/60 dark:text-pink-400' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'}`}
+                    >
+                      <Filter size={14} /> Filtrar {isFilterOpen ? 'Fechar' : 'Abrir'}
+                    </button>
 
-                    {/* Priority Filter */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Prioridade</label>
-                      <select
-                        value={priorityFilter}
-                        onChange={(e) => setPriorityFilter(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
-                      >
-                        <option value="all">Todas as prioridades</option>
-                        <option value="high">Alta</option>
-                        <option value="medium">Média</option>
-                        <option value="low">Baixa</option>
-                      </select>
-                    </div>
+                    <select
+                      value={priceSort}
+                      onChange={(e: any) => setPriceSort(e.target.value)}
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none"
+                    >
+                      <option value="">Ordenar Valor</option>
+                      <option value="asc">Menor Preço</option>
+                      <option value="desc">Maior Preço</option>
+                    </select>
 
-                    {/* Store Filter */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Loja / Fornecedor</label>
-                      <select
-                        value={storeFilter}
-                        onChange={(e) => setStoreFilter(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
-                      >
-                        <option value="all">Todas as Lojas</option>
-                        {storesList.map(store => (
-                          <option key={store} value={store}>{store}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                    <button
+                      onClick={() => setIsSearchOpen(false)}
+                      className="p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-650 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer"
+                      title="Fechar pesquisa e filtros"
+                      aria-label="Fechar pesquisa e filtros"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Collapsible advanced filters */}
+                <AnimatePresence>
+                  {isFilterOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-slate-100 dark:border-slate-850 overflow-hidden"
+                    >
+                      {/* Status Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Filtrar por Status</label>
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
+                        >
+                          <option value="all">Todos os Status</option>
+                          <option value="want">Quero Comprar</option>
+                          <option value="buying">Comprando</option>
+                          <option value="bought">Comprado</option>
+                          <option value="cancelled">Cancelado</option>
+                        </select>
+                      </div>
+
+                      {/* Priority Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Prioridade</label>
+                        <select
+                          value={priorityFilter}
+                          onChange={(e) => setPriorityFilter(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
+                        >
+                          <option value="all">Todas as prioridades</option>
+                          <option value="high">Alta</option>
+                          <option value="medium">Média</option>
+                          <option value="low">Baixa</option>
+                        </select>
+                      </div>
+
+                      {/* Store Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Loja / Fornecedor</label>
+                        <select
+                          value={storeFilter}
+                          onChange={(e) => setStoreFilter(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
+                        >
+                          <option value="all">Todas as Lojas</option>
+                          {storesList.map(store => (
+                            <option key={store} value={store}>{store}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
 
             {/* WISHLIST GRID DISPLAY */}
             {itemsToDisplay.length === 0 ? (
@@ -1142,14 +1219,59 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {itemsToDisplay.map((item) => {
+                  const isItemPapelaria = isPapelariaCategory(item.category);
+                  const papelariaStyle = isItemPapelaria
+                    ? (item.priority === 'low'
+                        ? {
+                            container: 'bg-[#fee2e2] dark:bg-[#3d1111] border-red-300 dark:border-red-900/60 text-red-950 dark:text-red-100 shadow-xs',
+                            badge: 'bg-red-500/20 text-red-900 dark:text-red-200 border-red-400/40',
+                            label: '🔴 Baixa Prioridade',
+                            title: 'text-red-950 dark:text-red-50 hover:text-red-700 dark:hover:text-red-300',
+                            price: 'text-red-950 dark:text-red-50',
+                            divider: 'border-red-300/60 dark:border-red-900/40',
+                            subText: 'text-red-900/75 dark:text-red-200/75',
+                            link: 'text-red-800 dark:text-red-300 hover:text-red-950',
+                            imgBg: 'bg-red-100/60 dark:bg-[#2e0c0c]'
+                          }
+                        : item.priority === 'high'
+                        ? {
+                            container: 'bg-[#dcfce7] dark:bg-[#073319] border-emerald-300 dark:border-emerald-900/60 text-emerald-950 dark:text-emerald-100 shadow-xs',
+                            badge: 'bg-emerald-500/20 text-emerald-900 dark:text-emerald-200 border-emerald-400/40',
+                            label: '🟢 Alta Prioridade',
+                            title: 'text-emerald-950 dark:text-emerald-50 hover:text-emerald-700 dark:hover:text-emerald-300',
+                            price: 'text-emerald-950 dark:text-emerald-50',
+                            divider: 'border-emerald-300/60 dark:border-emerald-900/40',
+                            subText: 'text-emerald-900/75 dark:text-emerald-200/75',
+                            link: 'text-emerald-800 dark:text-emerald-300 hover:text-emerald-950',
+                            imgBg: 'bg-emerald-100/60 dark:bg-[#052613]'
+                          }
+                        : {
+                            container: 'bg-[#fef9c3] dark:bg-[#382608] border-amber-300 dark:border-amber-900/60 text-amber-950 dark:text-amber-100 shadow-xs',
+                            badge: 'bg-amber-500/20 text-amber-900 dark:text-amber-200 border-amber-400/40',
+                            label: '🟡 Média Prioridade',
+                            title: 'text-amber-950 dark:text-amber-50 hover:text-amber-700 dark:hover:text-amber-300',
+                            price: 'text-amber-950 dark:text-amber-50',
+                            divider: 'border-amber-300/60 dark:border-amber-900/40',
+                            subText: 'text-amber-900/75 dark:text-amber-200/75',
+                            link: 'text-amber-900 dark:text-amber-300 hover:text-amber-950',
+                            imgBg: 'bg-yellow-100/60 dark:bg-[#2b1d06]'
+                          })
+                    : null;
+
                   return (
                     <motion.div
                       key={item.id}
                       layoutId={item.id}
-                      className="bg-white dark:bg-[#111726] rounded-3xl border border-slate-150 dark:border-slate-850 shadow-3xs overflow-hidden flex flex-col hover:shadow-xs transition-shadow relative text-left"
+                      className={`rounded-3xl border shadow-3xs overflow-hidden flex flex-col hover:shadow-xs transition-shadow relative text-left ${
+                        isItemPapelaria && papelariaStyle
+                          ? papelariaStyle.container
+                          : 'bg-white dark:bg-[#111726] border-slate-150 dark:border-slate-850'
+                      }`}
                     >
                       {/* Product Image Stage */}
-                      <div className="h-48 w-full bg-slate-100 dark:bg-slate-950 relative overflow-hidden group">
+                      <div className={`h-48 w-full relative overflow-hidden group ${
+                        isItemPapelaria && papelariaStyle ? papelariaStyle.imgBg : 'bg-slate-100 dark:bg-slate-950'
+                      }`}>
                         {item.imageUrl ? (
                           <img
                             src={item.imageUrl}
@@ -1159,14 +1281,20 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                             onClick={() => setLightboxItem(item)}
                           />
                         ) : (
-                          <div className="h-full w-full flex items-center justify-center text-slate-350 dark:text-slate-600 bg-slate-100 dark:bg-[#111726]/60">
+                          <div className="h-full w-full flex items-center justify-center text-slate-400/60">
                             <ShoppingBag size={42} className="opacity-40" />
                           </div>
                         )}
 
                         {/* Badges Overlay */}
                         <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
-                          {getStatusBadge(item.status)}
+                          {isItemPapelaria && papelariaStyle ? (
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border shadow-2xs ${papelariaStyle.badge}`}>
+                              {papelariaStyle.label}
+                            </span>
+                          ) : (
+                            getStatusBadge(item.status)
+                          )}
                         </div>
 
                         {/* Favorite Heart Star Overlay */}
@@ -1178,26 +1306,30 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                         </button>
 
                         {/* Extra indicators overlay (Tamanho / Cor) */}
-                        <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
-                          {item.size && (
-                            <span className="bg-slate-900/70 backdrop-blur-sm text-white text-[10px] font-black tracking-wide px-2 py-0.5 rounded-lg font-mono">T: {item.size}</span>
-                          )}
-                          {item.color && (
-                            <span className="bg-slate-900/70 backdrop-blur-sm text-white text-[10px] font-black tracking-wide px-2 py-0.5 rounded-lg">C: {item.color}</span>
-                          )}
-                        </div>
+                        {!isItemPapelaria && (
+                          <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
+                            {item.size && (
+                              <span className="bg-slate-900/70 backdrop-blur-sm text-white text-[10px] font-black tracking-wide px-2 py-0.5 rounded-lg font-mono">T: {item.size}</span>
+                            )}
+                            {item.color && (
+                              <span className="bg-slate-900/70 backdrop-blur-sm text-white text-[10px] font-black tracking-wide px-2 py-0.5 rounded-lg">C: {item.color}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Info body */}
                       <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                         <div className="space-y-1.5">
                           {/* Top Tag category/subcategory */}
-                          <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase font-mono tracking-wider">
+                          <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase font-mono tracking-wider ${
+                            isItemPapelaria && papelariaStyle ? papelariaStyle.subText : 'text-slate-400 dark:text-slate-500'
+                          }`}>
                             <span>{mergedCategories.find(c => c.id === item.category)?.name}</span>
                             {item.subCategory && (
                               <>
                                 <span>/</span>
-                                <span className="text-pink-650 dark:text-pink-400">{item.subCategory}</span>
+                                <span className={isItemPapelaria ? 'font-extrabold' : 'text-pink-650 dark:text-pink-400'}>{item.subCategory}</span>
                               </>
                             )}
                             {item.personalType && (
@@ -1216,12 +1348,16 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
 
                           <h4 
                             onClick={() => setLightboxItem(item)}
-                            className="text-base font-extrabold text-slate-900 dark:text-white leading-snug tracking-tight hover:text-pink-650 dark:hover:text-pink-400 cursor-pointer transition-colors"
+                            className={`text-base font-extrabold leading-snug tracking-tight cursor-pointer transition-colors ${
+                              isItemPapelaria && papelariaStyle
+                                ? papelariaStyle.title
+                                : 'text-slate-900 dark:text-white hover:text-pink-650 dark:hover:text-pink-400'
+                            }`}
                           >
                             {item.name}
                           </h4>
 
-                          {item.description && (
+                          {!isItemPapelaria && item.description && (
                             <p className="text-xs text-slate-450 dark:text-slate-500 font-medium leading-relaxed line-clamp-2">
                               {item.description}
                             </p>
@@ -1229,59 +1365,75 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                         </div>
 
                         {/* Price, Store, and Heart scale bar */}
-                        <div className="space-y-3.5 border-t border-slate-100 dark:border-slate-850 pt-3.5">
+                        <div className={`space-y-3.5 border-t pt-3.5 ${
+                          isItemPapelaria && papelariaStyle ? papelariaStyle.divider : 'border-slate-100 dark:border-slate-850'
+                        }`}>
                           <div className="flex justify-between items-baseline">
-                            <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                            <span className={`text-lg font-black tracking-tight ${
+                              isItemPapelaria && papelariaStyle ? papelariaStyle.price : 'text-slate-900 dark:text-white'
+                            }`}>
                               {formatPrice(item.price)}
                             </span>
-                            {item.store && (
+                            {!isItemPapelaria && item.store && (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-550 dark:text-slate-400">
                                 <Store size={11} className="text-slate-400" /> {item.store}
                               </span>
                             )}
                           </div>
 
-                          {/* Heart level / Priority */}
-                          <div className="flex justify-between items-center text-xs">
-                            {getPriorityBadge(item.priority)}
-                            <div className="flex items-center gap-0.5" title={`Desejo nível ${item.desireLevel}/5`}>
-                              {Array.from({ length: 5 }).map((_, idx) => (
-                                <Heart
-                                  key={idx}
-                                  size={10}
-                                  className={idx < item.desireLevel ? 'text-red-500 fill-red-500' : 'text-slate-200 dark:text-slate-800'}
-                                />
-                              ))}
+                          {/* Non-papelaria Priority and Heart Level */}
+                          {!isItemPapelaria && (
+                            <div className="flex justify-between items-center text-xs">
+                              {getPriorityBadge(item.priority)}
+                              <div className="flex items-center gap-0.5" title={`Desejo nível ${item.desireLevel}/5`}>
+                                {Array.from({ length: 5 }).map((_, idx) => (
+                                  <Heart
+                                    key={idx}
+                                    size={10}
+                                    className={idx < item.desireLevel ? 'text-red-500 fill-red-500' : 'text-slate-200 dark:text-slate-800'}
+                                  />
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
 
-                        {/* Item Footer Options (Absolute corner edit/delete) */}
-                        <div className="flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-850 pt-3">
+                        {/* Item Footer Options */}
+                        <div className={`flex items-center justify-between gap-2 border-t pt-3 ${
+                          isItemPapelaria && papelariaStyle ? papelariaStyle.divider : 'border-slate-100 dark:border-slate-850'
+                        }`}>
                           {item.link ? (
                             <a
                               href={item.link}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-xs font-bold text-pink-600 dark:text-pink-400 hover:underline flex items-center gap-1 cursor-pointer"
+                              className={`text-xs font-bold hover:underline flex items-center gap-1 cursor-pointer ${
+                                isItemPapelaria && papelariaStyle ? papelariaStyle.link : 'text-pink-650 dark:text-pink-400'
+                              }`}
                             >
                               <ExternalLink size={12} /> Ir para loja
                             </a>
                           ) : (
-                            <span className="text-[10px] text-slate-400 font-mono">Sem link cadastrado</span>
+                            <span className={`text-[10px] font-mono ${
+                              isItemPapelaria ? 'opacity-60' : 'text-slate-400'
+                            }`}>Sem link</span>
                           )}
 
                           <div className="flex items-center gap-1 relative">
                             <button
                               onClick={() => startEditItem(item)}
-                              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-colors"
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                isItemPapelaria
+                                  ? 'hover:bg-black/10 dark:hover:bg-white/10'
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'
+                              }`}
                               title="Editar item"
                             >
                               <Edit3 size={13} />
                             </button>
                             <button
                               onClick={() => handleDeleteItem(item.id)}
-                              className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 rounded-lg transition-colors"
+                              className="p-1.5 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-lg transition-colors"
                               title="Excluir item"
                             >
                               <Trash2 size={13} />
@@ -1900,52 +2052,76 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                     <button onClick={() => setLightboxItem(null)} className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 rounded-full text-slate-500"><X size={15} /></button>
                   </div>
 
-                  {lightboxItem.description && (
+                  {!isPapelariaCategory(lightboxItem.category) && lightboxItem.description && (
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-sans">{lightboxItem.description}</p>
                   )}
 
                   <div className="space-y-2 border-t border-slate-100 dark:border-slate-850 pt-4 text-xs font-medium text-slate-550 dark:text-slate-400">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                       <span className="text-slate-400">Valor Estimado:</span>
-                      <span className="font-extrabold text-slate-900 dark:text-white">{formatPrice(lightboxItem.price)}</span>
+                      <span className="font-extrabold text-slate-900 dark:text-white text-base">{formatPrice(lightboxItem.price)}</span>
                     </div>
-                    {lightboxItem.store && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Loja / Vendedor:</span>
-                        <span className="font-extrabold text-slate-900 dark:text-white">{lightboxItem.store}</span>
+
+                    {isPapelariaCategory(lightboxItem.category) ? (
+                      <div className="flex justify-between items-center pt-2">
+                        <span className="text-slate-400">Classificação de Prioridade:</span>
+                        <span>
+                          {lightboxItem.priority === 'low' ? (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-black bg-red-100 text-red-800 border border-red-300">
+                              🔴 Baixa Prioridade (Vermelho Pastel)
+                            </span>
+                          ) : lightboxItem.priority === 'high' ? (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              🟢 Alta Prioridade (Verde)
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-black bg-yellow-100 text-amber-900 border border-amber-300">
+                              🟡 Média Prioridade (Amarelo)
+                            </span>
+                          )}
+                        </span>
                       </div>
+                    ) : (
+                      <>
+                        {lightboxItem.store && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Loja / Vendedor:</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white">{lightboxItem.store}</span>
+                          </div>
+                        )}
+                        {lightboxItem.size && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Tamanho:</span>
+                            <span className="font-mono font-bold text-slate-900 dark:text-white">{lightboxItem.size}</span>
+                          </div>
+                        )}
+                        {lightboxItem.color && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Cor:</span>
+                            <span className="font-bold text-slate-900 dark:text-white">{lightboxItem.color}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Status atual:</span>
+                          <span>{getStatusBadge(lightboxItem.status)}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1">
+                          <span className="text-slate-400">Desejo de compra:</span>
+                          <div className="flex items-center gap-0.5">
+                            {Array.from({ length: 5 }).map((_, idx) => (
+                              <Heart
+                                key={idx}
+                                size={10}
+                                className={idx < lightboxItem.desireLevel ? 'text-red-500 fill-red-500' : 'text-slate-200 dark:text-slate-800'}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </>
                     )}
-                    {lightboxItem.size && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Tamanho:</span>
-                        <span className="font-mono font-bold text-slate-900 dark:text-white">{lightboxItem.size}</span>
-                      </div>
-                    )}
-                    {lightboxItem.color && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Cor:</span>
-                        <span className="font-bold text-slate-900 dark:text-white">{lightboxItem.color}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Status atual:</span>
-                      <span>{getStatusBadge(lightboxItem.status)}</span>
-                    </div>
-                    <div className="flex justify-between items-center pt-1">
-                      <span className="text-slate-400">Desejo de compra:</span>
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: 5 }).map((_, idx) => (
-                          <Heart
-                            key={idx}
-                            size={10}
-                            className={idx < lightboxItem.desireLevel ? 'text-red-500 fill-red-500' : 'text-slate-200 dark:text-slate-800'}
-                          />
-                        ))}
-                      </div>
-                    </div>
                   </div>
 
-                  {lightboxItem.notes && (
+                  {!isPapelariaCategory(lightboxItem.category) && lightboxItem.notes && (
                     <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-850 text-xs font-sans text-slate-500 leading-normal italic">
                       " {lightboxItem.notes} "
                     </div>
@@ -2124,6 +2300,64 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                     </div>
                   )}
 
+                  {isPapelariaCategory(formCategory) && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Subcategoria de Papelaria</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategoryId('papelaria');
+                            setShowAddSubCatModal(true);
+                          }}
+                          className="text-pink-600 hover:text-pink-700 dark:text-pink-400 p-0.5 rounded cursor-pointer"
+                          title="Nova subcategoria"
+                        >
+                          <Plus size={13} />
+                        </button>
+                      </div>
+                      <select
+                        value={formSubCategory}
+                        onChange={(e) => setFormSubCategory(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                      >
+                        <option value="">Selecione (Opcional)...</option>
+                        {categorySubcategoriesForForm.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {!isPapelariaCategory(formCategory) && formCategory !== 'clothes' && formCategory !== 'personal' && formCategory !== 'professional' && formCategory !== 'gifts' && categorySubcategoriesForForm.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Subcategoria</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategoryId(formCategory);
+                            setShowAddSubCatModal(true);
+                          }}
+                          className="text-pink-600 hover:text-pink-700 dark:text-pink-400 p-0.5 rounded cursor-pointer"
+                          title="Nova subcategoria"
+                        >
+                          <Plus size={13} />
+                        </button>
+                      </div>
+                      <select
+                        value={formSubCategory}
+                        onChange={(e) => setFormSubCategory(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                      >
+                        <option value="">Selecione (Opcional)...</option>
+                        {categorySubcategoriesForForm.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   {formCategory === 'personal' && (
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Tipo de Objeto Pessoal</label>
@@ -2205,136 +2439,209 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                   )}
                 </div>
 
-                {/* Size and Color (Optional parameters) */}
-                {(formCategory === 'clothes' || formCategory === 'shoes') && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Conditional rendering for Papelaria vs other categories */}
+                {isPapelariaCategory(formCategory) ? (
+                  <div className="space-y-4 pt-1">
+                    {/* Priority Selector with 3 pastel colors */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase flex items-center justify-between">
+                        <span>Classificação de Prioridade *</span>
+                        <span className="text-[10px] font-normal text-slate-400">Define a cor do card do produto</span>
+                      </label>
+                      <div className="grid grid-cols-3 gap-3">
+                        {/* Baixa Prioridade: Vermelho Pastel */}
+                        <button
+                          type="button"
+                          onClick={() => setFormPriority('low')}
+                          className={`p-3.5 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
+                            formPriority === 'low'
+                              ? 'bg-[#fee2e2] border-red-400 text-red-950 font-extrabold shadow-sm scale-[1.02] ring-2 ring-red-300 dark:ring-red-800'
+                              : 'bg-red-50/60 dark:bg-red-950/20 border-red-200/70 dark:border-red-900/40 text-red-800 dark:text-red-300 hover:bg-[#fee2e2]/70'
+                          }`}
+                        >
+                          <span className="w-3.5 h-3.5 rounded-full bg-red-400 border border-white shadow-xs" />
+                          <span className="text-xs font-black">Baixa Prioridade</span>
+                          <span className="text-[10px] opacity-75 font-medium">Vermelho Pastel</span>
+                        </button>
+
+                        {/* Média Prioridade: Amarelo */}
+                        <button
+                          type="button"
+                          onClick={() => setFormPriority('medium')}
+                          className={`p-3.5 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
+                            formPriority === 'medium'
+                              ? 'bg-[#fef9c3] border-amber-400 text-amber-950 font-extrabold shadow-sm scale-[1.02] ring-2 ring-amber-300 dark:ring-amber-800'
+                              : 'bg-yellow-50/60 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 hover:bg-[#fef9c3]/70'
+                          }`}
+                        >
+                          <span className="w-3.5 h-3.5 rounded-full bg-amber-400 border border-white shadow-xs" />
+                          <span className="text-xs font-black">Média Prioridade</span>
+                          <span className="text-[10px] opacity-75 font-medium">Amarelo</span>
+                        </button>
+
+                        {/* Alta Prioridade: Verde */}
+                        <button
+                          type="button"
+                          onClick={() => setFormPriority('high')}
+                          className={`p-3.5 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
+                            formPriority === 'high'
+                              ? 'bg-[#dcfce7] border-emerald-400 text-emerald-950 font-extrabold shadow-sm scale-[1.02] ring-2 ring-emerald-300 dark:ring-emerald-800'
+                              : 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300 hover:bg-[#dcfce7]/70'
+                          }`}
+                        >
+                          <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 border border-white shadow-xs" />
+                          <span className="text-xs font-black">Alta Prioridade</span>
+                          <span className="text-[10px] opacity-75 font-medium">Verde</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Optional link */}
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Tamanho (Opcional)</label>
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Link do Produto (URL - Opcional)</label>
+                      <input
+                        type="url"
+                        value={formLink}
+                        onChange={(e) => setFormLink(e.target.value)}
+                        placeholder="Ex: https://..."
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Size and Color (Optional parameters) */}
+                    {(formCategory === 'clothes' || formCategory === 'shoes') && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Tamanho (Opcional)</label>
+                          <input
+                            type="text"
+                            value={formSize}
+                            onChange={(e) => setFormSize(e.target.value)}
+                            placeholder="Ex: G, M, 41, 42..."
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Cor / Especificação (Opcional)</label>
+                          <input
+                            type="text"
+                            value={formColor}
+                            onChange={(e) => setFormColor(e.target.value)}
+                            placeholder="Ex: Preto, Azul, Titânio..."
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Loja & link */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Loja ou Site Recomendado</label>
+                        <input
+                          type="text"
+                          value={formStore}
+                          onChange={(e) => setFormStore(e.target.value)}
+                          placeholder="Ex: Nike, Zara, Amazon..."
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Link do Produto (URL)</label>
+                        <input
+                          type="url"
+                          value={formLink}
+                          onChange={(e) => setFormLink(e.target.value)}
+                          placeholder="Ex: https://..."
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Priority, desire level & status */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Prioridade de Compra</label>
+                        <select
+                          value={formPriority}
+                          onChange={(e: any) => setFormPriority(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                        >
+                          <option value="low">Baixa prioridade</option>
+                          <option value="medium">Média prioridade</option>
+                          <option value="high">Alta prioridade</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Nível de Desejo (1 a 5) ❤️</label>
+                        <select
+                          value={formDesireLevel}
+                          onChange={(e) => setFormDesireLevel(parseInt(e.target.value))}
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                        >
+                          <option value="1">1 coração (Gostei)</option>
+                          <option value="2">2 corações (Quero)</option>
+                          <option value="3">3 corações (Bastante)</option>
+                          <option value="4">4 corações (Desejo muito)</option>
+                          <option value="5">5 corações (Meta de consumo absoluto!)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Status do Desejo</label>
+                        <select
+                          value={formStatus}
+                          onChange={(e: any) => setFormStatus(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                        >
+                          {formCategory === 'gifts' ? (
+                            <>
+                              <option value="want">Ideia</option>
+                              <option value="buying">Quero comprar</option>
+                              <option value="bought">Comprado</option>
+                              <option value="cancelled">Entregue</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="want">Quero comprar</option>
+                              <option value="buying">Comprando</option>
+                              <option value="bought">Comprado</option>
+                              <option value="cancelled">Cancelado</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Descrição & Obs */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Descrição curta do produto</label>
                       <input
                         type="text"
-                        value={formSize}
-                        onChange={(e) => setFormSize(e.target.value)}
-                        placeholder="Ex: G, M, 41, 42..."
+                        value={formDesc}
+                        onChange={(e) => setFormDesc(e.target.value)}
+                        placeholder="Ex: Caimento perfeito, ótimo acabamento..."
                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Cor / Especificação (Opcional)</label>
-                      <input
-                        type="text"
-                        value={formColor}
-                        onChange={(e) => setFormColor(e.target.value)}
-                        placeholder="Ex: Preto, Azul, Titânio..."
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Anotações e Observações Pessoais</label>
+                      <textarea
+                        value={formNotes}
+                        onChange={(e) => setFormNotes(e.target.value)}
+                        placeholder="Ex: Esperar promoção de Natal, conferir cupom..."
+                        rows={2}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none resize-none"
                       />
                     </div>
-                  </div>
+                  </>
                 )}
-
-                {/* Loja & link */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Loja ou Site Recomendado</label>
-                    <input
-                      type="text"
-                      value={formStore}
-                      onChange={(e) => setFormStore(e.target.value)}
-                      placeholder="Ex: Nike, Zara, Amazon..."
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Link do Produto (URL)</label>
-                    <input
-                      type="url"
-                      value={formLink}
-                      onChange={(e) => setFormLink(e.target.value)}
-                      placeholder="Ex: https://..."
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Priority, desire level & status */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Prioridade de Compra</label>
-                    <select
-                      value={formPriority}
-                      onChange={(e: any) => setFormPriority(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
-                    >
-                      <option value="low">Baixa prioridade</option>
-                      <option value="medium">Média prioridade</option>
-                      <option value="high">Alta prioridade</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Nível de Desejo (1 a 5) ❤️</label>
-                    <select
-                      value={formDesireLevel}
-                      onChange={(e) => setFormDesireLevel(parseInt(e.target.value))}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
-                    >
-                      <option value="1">1 coração (Gostei)</option>
-                      <option value="2">2 corações (Quero)</option>
-                      <option value="3">3 corações (Bastante)</option>
-                      <option value="4">4 corações (Desejo muito)</option>
-                      <option value="5">5 corações (Meta de consumo absoluto!)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Status do Desejo</label>
-                    <select
-                      value={formStatus}
-                      onChange={(e: any) => setFormStatus(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
-                    >
-                      {formCategory === 'gifts' ? (
-                        <>
-                          <option value="want">Ideia</option>
-                          <option value="buying">Quero comprar</option>
-                          <option value="bought">Comprado</option>
-                          <option value="cancelled">Entregue</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="want">Quero comprar</option>
-                          <option value="buying">Comprando</option>
-                          <option value="bought">Comprado</option>
-                          <option value="cancelled">Cancelado</option>
-                        </>
-                      )}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Descrição & Obs */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Descrição curta do produto</label>
-                  <input
-                    type="text"
-                    value={formDesc}
-                    onChange={(e) => setFormDesc(e.target.value)}
-                    placeholder="Ex: Caimento perfeito, ótimo acabamento..."
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Anotações e Observações Pessoais</label>
-                  <textarea
-                    value={formNotes}
-                    onChange={(e) => setFormNotes(e.target.value)}
-                    placeholder="Ex: Esperar promoção de Natal, conferir cupom..."
-                    rows={2}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none resize-none"
-                  />
-                </div>
 
                 {/* Submit button */}
                 <div className="flex gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-850">

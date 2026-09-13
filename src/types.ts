@@ -1,3 +1,6 @@
+import { RedeAdolescentesData } from './types/redeAdolescentes';
+export * from './types/redeAdolescentes';
+
 export interface ShoppingItem {
   id: string;
   name: string;
@@ -440,6 +443,27 @@ export interface YouTubeState {
   apiKey?: string;
 }
 
+export interface ArchivedMonthSummary {
+  totalIncome: number;
+  totalExpense: number;
+  balance: number;
+  totalTasks: number;
+  completedTasks: number;
+  pendingTasks: number;
+}
+
+export interface ArchivedMonthData {
+  id: string;
+  monthName: string;
+  year: number;
+  monthIndex: number; // 0 for Jan, 8 for Sep, etc.
+  finalizedAt: string; // e.g. "13/09/2026 às 15:30"
+  finalizedAtDate: string; // e.g. "13/09/2026"
+  finance: FinanceTransaction[];
+  tasks: Task[];
+  summary: ArchivedMonthSummary;
+}
+
 export interface PainelData {
   shoppingList: ShoppingItem[];
   tasks: Task[];
@@ -458,7 +482,8 @@ export interface PainelData {
   church?: ChurchState; // Church tab data
   youtube?: YouTubeState; // YouTube tab data
   queroComprar?: QueroComprarState; // New Wishlist full app module
-  catalogs: CatalogsState; // New Catalogs full app module
+  archivedMonths?: ArchivedMonthData[]; // Archived finished months
+  redeAdolescentes?: RedeAdolescentesData; // Rede de Adolescentes 2027 project module
 }
 
 // Wishlist Full Module interfaces
@@ -540,65 +565,6 @@ export interface GalleryPhoto {
   fileName: string;
   createdAt: string;   // ISO string timestamp
   deletedAt: string | null;  // ISO string when thrown in trash list
-}
-
-export interface CatalogFieldDefinition {
-  id: string;
-  name: string;
-  type: 'text' | 'number' | 'date' | 'link' | 'rating' | 'select';
-  options?: string[];
-  isRequired?: boolean;
-}
-
-export interface CustomCatalogItem {
-  id: string;
-  catalogId: string;
-  name: string;
-  categories: string[];
-  isFavorite: boolean;
-  fieldValues: { [fieldId: string]: any };
-  imageUrl?: string; // base64 photo
-  notes?: string;
-  createdAt: string;
-}
-
-export interface CustomCatalog {
-  id: string;
-  name: string;
-  icon: string;
-  fields: CatalogFieldDefinition[];
-  categories: string[];
-  isDefault?: boolean;
-}
-
-export interface ChurchSong {
-  id: string;
-  name: string;
-  artist: string; // Cantor ou Banda
-  composer?: string; // Compositor
-  key?: string; // Tom
-  capo?: string; // Capotraste
-  youtubeUrl?: string; // Link do YouTube
-  notes?: string;
-  categories: string[];
-  isFavorite: boolean;
-  createdAt: string;
-  style?: string; // Estilo/Tipo (e.g., Louvor, Adoração, Outro)
-}
-
-export interface SongRepertoire {
-  id: string;
-  name: string;
-  songIds: string[];
-  createdAt: string;
-}
-
-export interface CatalogsState {
-  songs: ChurchSong[];
-  songCategories: string[];
-  repertoires: SongRepertoire[];
-  customCatalogs: CustomCatalog[];
-  customItems: CustomCatalogItem[];
 }
 
 // ==========================================

@@ -74,6 +74,7 @@ const DEFAULT_TABS: TabConfig[] = [
   { id: 'bible', label: 'Igreja', icon: 'Book', color: 'text-amber-500', hidden: false, pinned: false, order: 13 },
   { id: 'church', label: 'Vida na Igreja', icon: 'Church', color: 'text-rose-600', hidden: false, pinned: false, order: 14 },
   { id: 'reminders', label: 'Lembretes & Alertas', icon: 'Bell', color: 'text-amber-400', hidden: false, pinned: false, order: 15 },
+  { id: 'rede_adolescentes', label: 'REDE DE ADOLESCENTES', icon: 'Users', color: 'text-indigo-500 font-black', hidden: false, pinned: false, order: 15.5 },
   { id: 'finance', label: 'Controle Financeiro', icon: 'DollarSign', color: 'text-emerald-400', hidden: false, pinned: false, order: 16 },
   { id: 'settings', label: 'Sistema & Segurança', icon: 'Settings', color: 'text-slate-500', hidden: false, pinned: false, order: 18 }
 ];

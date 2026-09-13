@@ -335,7 +335,6 @@ function getSiteDataContext(data: any): string {
     text += `- Sub-aba ativa na Organização: ${data.dashboard.activeOrgSubTab || "home"}\n`;
     text += `- Sub-aba ativa em Finanças: ${data.dashboard.activeFinSubTab || "home"}\n`;
     text += `- Sub-aba ativa em Estudos: ${data.dashboard.activeStudiesSubTab || "home"}\n`;
-    text += `- Sub-aba ativa em Entretenimento: ${data.dashboard.activeEntSubTab || "home"}\n`;
     text += "\n";
   }
 
@@ -382,50 +381,6 @@ function getSiteDataContext(data: any): string {
     text += `- Desejos Cadastrados: ${s.wishlistItemsCount} itens desejados no módulo Quero Comprar\n`;
     text += `- Bloco de Notas: ${s.notesCount} anotações rápidas e pensamentos fofos guardados\n`;
     text += `- Galeria Pessoal: ${s.photosCount} lembranças fotográficas eternizadas\n`;
-    text += "\n";
-  }
-
-  // 22. Catálogos e Coleções Personalizadas (Catalogs Module)
-  if (data.catalogs) {
-    const c = data.catalogs;
-    text += "## Módulo de Catálogos e Coleções Personalizadas:\n";
-    if (c.customCatalogs && c.customCatalogs.length > 0) {
-      text += "-> Catálogos Registrados:\n";
-      c.customCatalogs.forEach((cat: any) => {
-        text += `  * Catálogo: "${cat.name}" (ID: ${cat.id}) | Ícone: ${cat.icon || "📁"}\n`;
-        if (cat.categories && cat.categories.length > 0) {
-          text += `    - Categorias do catálogo: ${cat.categories.join(", ")}\n`;
-        }
-        if (cat.fields && cat.fields.length > 0) {
-          text += "    - Campos Personalizados:\n";
-          cat.fields.forEach((f: any) => {
-            text += `      - ${f.name} (Tipo: ${f.type}${f.options ? `, Opções: ${f.options.join("/")}` : ""}${f.isRequired ? ", Obrigatório" : ""})\n`;
-          });
-        }
-        
-        // Find items of this catalog
-        const items = (c.customItems || []).filter((item: any) => item.catalogId === cat.id);
-        if (items.length > 0) {
-          text += `    - Itens Cadastrados neste Catálogo (${items.length}):\n`;
-          items.forEach((item: any) => {
-            let fieldValsStr = "";
-            if (item.fieldValues) {
-              const vals = Object.entries(item.fieldValues).map(([fId, val]) => {
-                const fieldDef = (cat.fields || []).find((f: any) => f.id === fId);
-                const fieldName = fieldDef ? fieldDef.name : fId;
-                return `${fieldName}: ${val}`;
-              });
-              fieldValsStr = vals.length > 0 ? ` [${vals.join(" | ")}]` : "";
-            }
-            text += `      * ${item.name}${item.isFavorite ? " ⭐" : ""}${item.categories && item.categories.length > 0 ? ` (Categorias: ${item.categories.join(", ")})` : ""}${fieldValsStr}${item.notes ? ` - Obs: "${item.notes}"` : ""}\n`;
-          });
-        } else {
-          text += "    - Nenhum item cadastrado neste catálogo ainda.\n";
-        }
-      });
-    } else {
-      text += "-> Nenhum catálogo personalizado foi criado ainda.\n";
-    }
     text += "\n";
   }
 

@@ -26,13 +26,15 @@ import {
   Sun,
   LayoutGrid
 } from 'lucide-react';
-import { PainelData } from '../types';
+import { PainelData, ArchivedMonthData } from '../types';
+import MonthsHistorySection from './MonthsHistorySection';
 
 interface SystemSettingsSectionProps {
   data: PainelData;
   onImport: (newData: PainelData) => void;
   onResetToDefaults: () => void;
   onClearAll: () => void;
+  onFinalizeMonth?: (archivedMonth: ArchivedMonthData) => void;
   userName?: string;
   setUserName?: (name: string) => void;
   profilePicUrl?: string;
@@ -61,10 +63,11 @@ export default function SystemSettingsSection({
   onSignOut,
   onRestartOnboarding,
   currentUserEmail = '',
-  onRestartTutorial
+  onRestartTutorial,
+  onFinalizeMonth
 }: SystemSettingsSectionProps) {
   // Navigation internal tab state (instead of duplication)
-  const [activeTab, setActiveTab] = useState<'profile' | 'tabs' | 'theme' | 'preferences' | 'backup'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'tabs' | 'theme' | 'preferences' | 'months' | 'backup'>('profile');
   
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -102,12 +105,11 @@ export default function SystemSettingsSection({
     { id: 'organization', label: 'Organização', icon: 'Calendar', color: 'text-cyan-500', hidden: false, pinned: false, order: 2 },
     { id: 'finance', label: 'Vida Financeira', icon: 'DollarSign', color: 'text-emerald-500', hidden: false, pinned: false, order: 3 },
     { id: 'quero_comprar', label: '👕 Quero Comprar', icon: 'ShoppingBag', color: 'text-pink-500 font-extrabold', hidden: false, pinned: false, order: 4 },
+    { id: 'rede_adolescentes', label: 'REDE DE ADOLESCENTES', icon: 'Users', color: 'text-indigo-500 font-black', hidden: false, pinned: false, order: 4.5 },
     { id: 'studies', label: 'Estudos', icon: 'GraduationCap', color: 'text-violet-500', hidden: false, pinned: false, order: 5 },
     { id: 'gym', label: 'Treino', icon: 'Dumbbell', color: 'text-rose-500', hidden: false, pinned: false, order: 5.5 },
     { id: 'bible', label: 'Igreja', icon: 'Book', color: 'text-amber-500', hidden: false, pinned: false, order: 6 },
-    { id: 'catalogs', label: 'Catálogos', icon: 'Folder', color: 'text-indigo-500 font-extrabold', hidden: false, pinned: false, order: 6.5 },
-    { id: 'entertainment', label: 'Entretenimento', icon: 'Film', color: 'text-pink-500', hidden: false, pinned: false, order: 7 },
-    { id: 'system', label: 'Sistema', icon: 'Settings', color: 'text-slate-500', hidden: false, pinned: false, order: 8 }
+    { id: 'system', label: 'Sistema', icon: 'Settings', color: 'text-slate-500', hidden: false, pinned: false, order: 7 }
   ];
 
   const [tabsList, setTabsList] = useState<any[]>(() => {
@@ -416,6 +418,16 @@ export default function SystemSettingsSection({
           }`}
         >
           <Bell size={14} /> <span>⚙️ Preferências</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('months')} 
+          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'months' 
+              ? 'bg-indigo-600 text-white shadow-md' 
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+          }`}
+        >
+          <Moon size={14} className="text-amber-400 fill-amber-400/30" /> <span>🌙 Fechar Mês & Histórico</span>
         </button>
         <button 
           onClick={() => setActiveTab('backup')} 
@@ -1053,9 +1065,54 @@ export default function SystemSettingsSection({
           </div>
         )}
 
+        {/* TAB 5: FINALIZAR MÊS & HISTÓRICO DE MESES */}
+        {activeTab === 'months' && (
+          <MonthsHistorySection
+            data={data}
+            onFinalizeMonth={(archived) => {
+              if (onFinalizeMonth) {
+                onFinalizeMonth(archived);
+              } else {
+                const updatedArchived = [archived, ...(data.archivedMonths || [])];
+                const updated: PainelData = {
+                  ...data,
+                  finance: [],
+                  tasks: [],
+                  archivedMonths: updatedArchived
+                };
+                onImport(updated);
+              }
+              triggerSuccess(`Mês de ${archived.monthName} finalizado e arquivado com sucesso! 🌙`);
+            }}
+            userName={name || userName}
+          />
+        )}
+
         {/* TAB 6: BACKUP & DATA RESET */}
         {activeTab === 'backup' && (
           <div className="space-y-6">
+            {/* Quick Month Finalize Banner inside Backup */}
+            <div className="bg-gradient-to-r from-indigo-950/40 via-indigo-900/20 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-left">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5 font-mono">
+                  <Moon size={12} className="text-amber-400" /> Fechamento & Ciclo
+                </span>
+                <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                  Finalizar Mês & Meses Anteriores
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
+                  Arquive seu Controle Financeiro e Minhas Tarefas com geração de PDF e histórico permanente, iniciando o próximo mês.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveTab('months')}
+                className="shrink-0 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all cursor-pointer shadow-sm active:scale-95"
+              >
+                <Moon size={14} className="text-amber-300 fill-amber-300/40" />
+                <span>Finalizar mês ({data.archivedMonths?.length || 0} arquivados)</span>
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Backup Card */}
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 md:p-6 space-y-4 shadow-sm text-left">

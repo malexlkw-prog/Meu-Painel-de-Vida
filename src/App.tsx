@@ -44,9 +44,10 @@ import {
   Target,
   Activity,
   Play,
-  Folder
+  Folder,
+  Users
 } from 'lucide-react';
-import { PainelData, ShoppingItem, Task, ScheduleItem, StudySubject, StudyHistory, MediaItem, MusicTrack, MusicArtist, Reminder, FinanceTransaction, BibleReflection, BibleHistoryLog, SchoolSubject, CalendarMarkedDay, NoteEntry, CreativityProject, GymState, CatalogsState } from './types';
+import { PainelData, ShoppingItem, Task, ScheduleItem, StudySubject, StudyHistory, MediaItem, MusicTrack, MusicArtist, Reminder, FinanceTransaction, BibleReflection, BibleHistoryLog, SchoolSubject, CalendarMarkedDay, NoteEntry, CreativityProject, GymState, ArchivedMonthData } from './types';
 import { INITIAL_DATA, EMPTY_DATA } from './data/initialData';
 import { getGiftReminders } from './utils/dateUtils';
 import StationerySuite from './components/StationerySuite';
@@ -77,8 +78,8 @@ import YouTubeSection from './components/YouTubeSection';
 import GallerySection from './components/GallerySection';
 import WorldCupSection from './components/WorldCupSection';
 import CustomizationDrawer from './components/CustomizationDrawer';
-import CatalogsSection, { DEFAULT_CATALOGS_STATE } from './components/CatalogsSection';
 import ProjectsSection from './components/ProjectsSection';
+import { RedeAdolescentesSection } from './components/RedeAdolescentesSection';
 import { getAllPhotos, getAlbums } from './utils/galleryDB';
 
 // Firebase imports
@@ -280,12 +281,6 @@ const SUBCOLLECTION_MAP: { [key: string]: string } = {
   'queroComprar.items': 'queroComprarItems',
   'queroComprar.people': 'queroComprarPeople',
   
-  // Catalogs sub-keys
-  'catalogs.songs': 'catalogsSongs',
-  'catalogs.repertoires': 'catalogsRepertoires',
-  'catalogs.customCatalogs': 'catalogsCustomCatalogs',
-  'catalogs.customItems': 'catalogsCustomItems',
-  
   // Music sub-keys
   'music.tracks': 'musicTracks',
   'music.artists': 'musicArtists',
@@ -418,7 +413,7 @@ const setValueByPath = (obj: any, path: string, value: any): any => {
   return newObj;
 };
 
-const getPathsNeededForCurrentView = (tab: string, orgSub: string, finSub: string, studiesSub: string, entSub: string): string[] => {
+const getPathsNeededForCurrentView = (tab: string, orgSub: string, finSub: string, studiesSub: string): string[] => {
   if (tab === 'dashboard') {
     return ['tasks', 'finance', 'reminders', 'queroComprar.items', 'queroComprar.people'];
   }
@@ -455,9 +450,6 @@ const getPathsNeededForCurrentView = (tab: string, orgSub: string, finSub: strin
   }
   if (tab === 'wishlist' || tab === 'quero_comprar') {
     return ['queroComprar.items', 'queroComprar.people'];
-  }
-  if (tab === 'catalogs') {
-    return ['catalogs.songs', 'catalogs.repertoires', 'catalogs.customCatalogs', 'catalogs.customItems'];
   }
   return [];
 };
@@ -502,9 +494,6 @@ export default function App() {
     }
     if (!parsed.youtube) {
       parsed.youtube = EMPTY_DATA.youtube;
-    }
-    if (!parsed.catalogs || !parsed.catalogs.songs || parsed.catalogs.songs.length === 0) {
-      parsed.catalogs = DEFAULT_CATALOGS_STATE;
     }
     if (!parsed.queroComprar) {
       parsed.queroComprar = { items: [], people: [] };
@@ -587,7 +576,6 @@ export default function App() {
   const [activeOrgSubTab, setActiveOrgSubTab] = useState<'home' | 'tasks' | 'schedule' | 'calendar' | 'reminders' | 'notes' | 'creativity'>('home');
   const [activeFinSubTab, setActiveFinSubTab] = useState<'home' | 'finance' | 'shoppingList' | 'stationery' | 'sales'>('home');
   const [activeStudiesSubTab, setActiveStudiesSubTab] = useState<'home' | 'school' | 'gym'>('home');
-  const [activeEntSubTab, setActiveEntSubTab] = useState<'home' | 'movies' | 'series' | 'animes' | 'music' | 'youtube' | 'gallery' | 'copa'>('home');
   const [activeSysSubTab, setActiveSysSubTab] = useState<'profile' | 'customization' | 'security' | 'backup' | 'theme' | 'pin'>('profile');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -609,10 +597,10 @@ export default function App() {
         console.error("Erro ao carregar dados da galeria para o Context Manager:", err);
       }
     }
-    if (activeTab === 'sete' || activeEntSubTab === 'gallery') {
+    if (activeTab === 'sete' || activeTab === 'gallery') {
       loadGalleryData();
     }
-  }, [activeTab, activeEntSubTab]);
+  }, [activeTab]);
 
   // Context Manager for Sete IA
   const getCompleteSiteData = () => {
@@ -691,7 +679,6 @@ export default function App() {
         music: data.music || null,
         youtube: data.youtube || null
       },
-      catalogo: data.catalogs || null,
 
       // English root keys (ensure arrays are direct to match server expectations)
       studies: data.studies || [],
@@ -704,7 +691,6 @@ export default function App() {
       finance: data.finance || [],
       shoppingList: data.shoppingList || [],
       queroComprar: data.queroComprar || null,
-      catalogs: data.catalogs || null,
 
       // Structured modular context properties
       profile: {
@@ -716,7 +702,6 @@ export default function App() {
         activeOrgSubTab,
         activeFinSubTab,
         activeStudiesSubTab,
-        activeEntSubTab,
         mobileMenuOpen,
         isCustomizerOpen,
         tabsVersion
@@ -735,11 +720,6 @@ export default function App() {
         albumsList: galleryAlbums.map(a => a.name || a.id),
         photos: galleryPhotosMeta
       },
-      entertainment: {
-        media: data.media || [],
-        music: data.music || null
-      },
-      catalog: data.catalogs || null,
       settings: {
         darkMode,
         activeSysSubTab
@@ -952,7 +932,6 @@ export default function App() {
         music: latestAppData.music || null,
         youtube: latestAppData.youtube || null
       },
-      catalogo: latestAppData.catalogs || null,
 
       // English root keys (ensure arrays are direct to match server expectations)
       studies: latestAppData.studies || [],
@@ -965,7 +944,6 @@ export default function App() {
       finance: latestAppData.finance || [],
       shoppingList: latestAppData.shoppingList || [],
       queroComprar: latestAppData.queroComprar || null,
-      catalogs: latestAppData.catalogs || null,
 
       profile: {
         userName: latestUserName,
@@ -976,7 +954,6 @@ export default function App() {
         activeOrgSubTab,
         activeFinSubTab,
         activeStudiesSubTab,
-        activeEntSubTab,
         mobileMenuOpen,
         isCustomizerOpen,
         tabsVersion
@@ -995,11 +972,6 @@ export default function App() {
         albumsList: latestAlbums.map((a: any) => a.name || a.id),
         photos: galleryPhotosMeta
       },
-      entertainment: {
-        media: latestAppData.media || [],
-        music: latestAppData.music || null
-      },
-      catalog: latestAppData.catalogs || null,
       settings: {
         darkMode,
         activeSysSubTab
@@ -1047,7 +1019,6 @@ export default function App() {
           if (appConfigs.church) updatedData.church = { ...updatedData.church, ...appConfigs.church };
           if (appConfigs.youtube) updatedData.youtube = { ...updatedData.youtube, ...appConfigs.youtube };
           if (appConfigs.queroComprar) updatedData.queroComprar = { ...updatedData.queroComprar, ...appConfigs.queroComprar };
-          if (appConfigs.catalogs) updatedData.catalogs = { ...updatedData.catalogs, ...appConfigs.catalogs };
         }
 
         const paths = Object.keys(SUBCOLLECTION_MAP);
@@ -1188,8 +1159,7 @@ export default function App() {
             customSubCategories: data.queroComprar?.customSubCategories || {},
             deletedCategories: data.queroComprar?.deletedCategories || [],
             deletedSubCategories: data.queroComprar?.deletedSubCategories || {}
-          },
-          catalogs: { songCategories: data.catalogs?.songCategories || [] }
+          }
         };
 
         const mainDocRef = doc(db, 'painel_data', 'main');
@@ -1212,11 +1182,11 @@ export default function App() {
   // On-Demand Lazy Loading on View Change
   useEffect(() => {
     if (!hasLoadedFromServer) return;
-    const paths = getPathsNeededForCurrentView(activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab);
+    const paths = getPathsNeededForCurrentView(activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab);
     if (paths.length > 0) {
       loadSubcollectionData(paths);
     }
-  }, [activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, activeEntSubTab, hasLoadedFromServer]);
+  }, [activeTab, activeOrgSubTab, activeFinSubTab, activeStudiesSubTab, hasLoadedFromServer]);
 
   // Sync state changes dynamically from custom events (instant reactivity)
   useEffect(() => {
@@ -1286,10 +1256,9 @@ export default function App() {
       { id: 'organization', label: 'Organização', icon: 'Calendar', color: 'text-cyan-500', hidden: false, pinned: false, order: 4 },
       { id: 'finance', label: 'Vida Financeira', icon: 'DollarSign', color: 'text-emerald-500', hidden: false, pinned: false, order: 5 },
       { id: 'quero_comprar', label: '👕 Quero Comprar', icon: 'ShoppingBag', color: 'text-pink-500 font-extrabold', hidden: false, pinned: false, order: 6 },
+      { id: 'rede_adolescentes', label: 'REDE DE ADOLESCENTES', icon: 'Users', color: 'text-indigo-500 font-black', hidden: false, pinned: false, order: 6.5 },
       { id: 'bible', label: 'Igreja', icon: 'Book', color: 'text-amber-500', hidden: false, pinned: false, order: 7 },
-      { id: 'catalogs', label: 'Catálogos', icon: 'Folder', color: 'text-indigo-500 font-extrabold', hidden: false, pinned: false, order: 8 },
-      { id: 'entertainment', label: 'Entretenimento', icon: 'Film', color: 'text-pink-500', hidden: false, pinned: false, order: 9 },
-      { id: 'system', label: 'Sistema', icon: 'Settings', color: 'text-slate-500', hidden: false, pinned: false, order: 10 }
+      { id: 'system', label: 'Sistema', icon: 'Settings', color: 'text-slate-500', hidden: false, pinned: false, order: 8 }
     ];
 
     let tabs = defaultTabs;
@@ -1362,7 +1331,8 @@ export default function App() {
     Trophy,
     GraduationCap,
     Film,
-    Folder
+    Folder,
+    Users
   };
 
   const renderSidebarList = (items: any[]) => {
@@ -1958,6 +1928,15 @@ export default function App() {
     }, 3000);
   };
 
+  const handleFinalizeMonth = (archivedMonth: ArchivedMonthData) => {
+    setData(prev => ({
+      ...prev,
+      finance: [], // Reset Controle Financeiro
+      tasks: [],   // Reset Organização -> Minhas Tarefas
+      archivedMonths: [archivedMonth, ...(prev.archivedMonths || [])]
+    }));
+  };
+
   const handleUpdateGymState = (updater: (prev: GymState) => GymState) => {
     setData(prev => {
       const currentGym = prev.gym || { workouts: [], goals: [], measurements: [], photos: [], calendar: {}, hoursTrainedTotal: 0 };
@@ -2202,7 +2181,6 @@ export default function App() {
     { id: 'creativity', label: 'Criatividade', icon: Sparkles, color: 'text-pink-500' },
     { id: 'music', label: 'Músicas & Artistas', icon: Music, color: 'text-pink-500' },
     { id: 'bible', label: 'Igreja', icon: Book, color: 'text-amber-500' },
-    { id: 'catalogs', label: 'Catálogos', icon: Folder, color: 'text-indigo-500 font-extrabold' },
     { id: 'church', label: 'Vida na Igreja', icon: Church, color: 'text-rose-600' },
     { id: 'youtube', label: 'Central de Mídia', icon: Youtube, color: 'text-red-500' },
     { id: 'reminders', label: 'Lembretes & Alertas', icon: Bell, color: 'text-amber-400 animate-pulse' },
@@ -2904,7 +2882,6 @@ export default function App() {
                 setActiveOrgSubTab={setActiveOrgSubTab}
                 setActiveFinSubTab={setActiveFinSubTab}
                 setActiveStudiesSubTab={setActiveStudiesSubTab}
-                setActiveEntSubTab={setActiveEntSubTab}
                 userName={userName}
                 setUserName={setUserName}
               />
@@ -3317,15 +3294,6 @@ export default function App() {
               />
             )}
 
-            {/* NEW: CATÁLOGOS MODULE */}
-            {activeTab === 'catalogs' && (
-              <div className="w-full">
-                <CatalogsSection
-                  catalogsState={data.catalogs}
-                  onUpdateCatalogs={(updater) => setData(prev => ({ ...prev, catalogs: typeof updater === 'function' ? updater(prev.catalogs || DEFAULT_CATALOGS_STATE) : updater }))}
-                />
-              </div>
-            )}
 
             {/* QUERO COMPRAR (DESEJOS & WISHLIST) */}
             {(activeTab === 'quero_comprar' || activeTab === 'wishlist') && (
@@ -3338,7 +3306,42 @@ export default function App() {
               </div>
             )}
 
-            {/* 7. ENTERTAINMENT & GALERIAS */}
+            {/* REDE DE ADOLESCENTES 2027 */}
+            {activeTab === 'rede_adolescentes' && (
+              <div className="w-full space-y-6">
+                <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setActiveTab('dashboard')}
+                      className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 text-slate-800 dark:text-white cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <span className="text-indigo-500 font-extrabold text-sm">←</span>
+                      <span>Voltar ao Dashboard</span>
+                    </button>
+                    <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
+                    <div>
+                      <h2 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Módulo Ativo</h2>
+                      <p className="text-sm font-black text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                        <Users size={16} /> REDE DE ADOLESCENTES 2027
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-xs font-mono text-slate-400 dark:text-slate-500">
+                    Centro de Planejamento & Gestão
+                  </div>
+                </div>
+
+                <RedeAdolescentesSection
+                  data={data.redeAdolescentes || INITIAL_DATA.redeAdolescentes}
+                  onUpdateData={(newRede) => {
+                    setData({
+                      ...data,
+                      redeAdolescentes: newRede
+                    });
+                  }}
+                />
+              </div>
+            )}
 
             {/* 8. SISTEMA & CONFIGURAÇÃO */}
             {activeTab === 'system' && (
@@ -3365,6 +3368,7 @@ export default function App() {
                   onImport={importFullBackup}
                   onResetToDefaults={resetToFactoryDefaults}
                   onClearAll={clearAllData}
+                  onFinalizeMonth={handleFinalizeMonth}
                   userName={userName}
                   setUserName={setUserName}
                   profilePicUrl={profilePicUrl}
