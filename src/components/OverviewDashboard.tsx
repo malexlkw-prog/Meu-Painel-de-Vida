@@ -225,15 +225,15 @@ export default function OverviewDashboard({
             <div className="mt-4 space-y-1 text-left">
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-550 font-mono">Saldo Consolidado</span>
               <h3 className="text-2xl font-display font-black text-slate-900 dark:text-white">
-                R$ {currentBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(currentBalance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
             </div>
 
             <div className="border-t border-slate-100 dark:border-slate-800/65 pt-2 mt-3 flex items-center justify-between text-[10px] text-slate-450 dark:text-slate-400 font-bold">
               <span>Rendimento Líquido</span>
               <div className="flex gap-2">
-                <span className="text-emerald-600">▲ R$ {totalIncome.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
-                <span className="text-rose-600">▼ R$ {totalExpense.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
+                <span className="text-emerald-600">▲ R$ {(totalIncome || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
+                <span className="text-rose-600">▼ R$ {(totalExpense || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
               </div>
             </div>
           </div>

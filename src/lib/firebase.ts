@@ -6,7 +6,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyDG3gN5yGhBKSfoWf_99UlLhmdgYDhKCS0",
   authDomain: "meu-painel-e6a63.firebaseapp.com",
   projectId: "meu-painel-e6a63",
-  storageBucket: "meu-painel-e6a63.firebasestorage.app",
+  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || "meu-painel-e6a63.firebasestorage.app",
   messagingSenderId: "181326849052",
   appId: "1:181326849052:web:80ea9ed4a8e16672a96bd9"
 };

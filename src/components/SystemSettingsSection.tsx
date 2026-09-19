@@ -102,7 +102,8 @@ export default function SystemSettingsSection({
   const defaultTabs = [
     { id: 'dashboard', label: 'Dashboard', icon: 'Home', color: 'text-indigo-500', hidden: false, pinned: false, order: 0 },
     { id: 'sete', label: 'Sete IA', icon: 'Sparkles', color: 'text-amber-500 font-extrabold animate-pulse', hidden: false, pinned: false, order: 1 },
-    { id: 'organization', label: 'Organização', icon: 'Calendar', color: 'text-cyan-500', hidden: false, pinned: false, order: 2 },
+    { id: 'school', label: 'Escola', icon: 'BookOpen', color: 'text-sky-500 font-bold', hidden: false, pinned: false, order: 2 },
+    { id: 'organization', label: 'Organização', icon: 'Calendar', color: 'text-cyan-500', hidden: false, pinned: false, order: 2.5 },
     { id: 'finance', label: 'Vida Financeira', icon: 'DollarSign', color: 'text-emerald-500', hidden: false, pinned: false, order: 3 },
     { id: 'quero_comprar', label: '👕 Quero Comprar', icon: 'ShoppingBag', color: 'text-pink-500 font-extrabold', hidden: false, pinned: false, order: 4 },
     { id: 'rede_adolescentes', label: 'REDE DE ADOLESCENTES', icon: 'Users', color: 'text-indigo-500 font-black', hidden: false, pinned: false, order: 4.5 },

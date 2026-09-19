@@ -1,10 +1,11 @@
 import { PainelData, Reminder } from '../types';
 
 export function parseDateStringToCurrentYear(dateStr: string): Date | null {
-  if (!dateStr) return null;
+  if (!dateStr || typeof dateStr !== 'string') return null;
   
   // Clean string
   const clean = dateStr.trim();
+  if (!clean) return null;
   
   // Try YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
@@ -34,7 +35,7 @@ export function parseDateStringToCurrentYear(dateStr: string): Date | null {
   const monthsPt = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   const lower = clean.toLowerCase();
   for (let i = 0; i < monthsPt.length; i++) {
-    if (lower.includes(monthsPt[i])) {
+    if (lower && lower.includes(monthsPt[i])) {
       const matches = lower.match(/\d+/);
       if (matches) {
         const day = parseInt(matches[0]);

@@ -194,8 +194,9 @@ export default function NotesSection({ notes, onAddNote, onUpdateNote, onDeleteN
   const handleAddFolder = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFolderName.trim()) return;
-    if (!customFolders.includes(newFolderName.trim())) {
-      setCustomFolders([...customFolders, newFolderName.trim()]);
+    const name = newFolderName.trim();
+    if (!Array.isArray(customFolders) || !customFolders.includes(name)) {
+      setCustomFolders([...(Array.isArray(customFolders) ? customFolders : []), name]);
     }
     setNewFolderName('');
     setShowFolderForm(false);
@@ -222,7 +223,7 @@ export default function NotesSection({ notes, onAddNote, onUpdateNote, onDeleteN
   const handleAddTag = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeNote || !newTagInput.trim()) return;
-    const currentTags = activeNote.tags || [];
+    const currentTags = Array.isArray(activeNote.tags) ? activeNote.tags : [];
     const formattedTag = newTagInput.trim().toLowerCase().replace('#', '');
     if (!currentTags.includes(formattedTag)) {
       onUpdateNote({
@@ -348,10 +349,10 @@ export default function NotesSection({ notes, onAddNote, onUpdateNote, onDeleteN
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       list = list.filter(n => 
-        n.title.toLowerCase().includes(q) ||
-        n.content.toLowerCase().includes(q) ||
+        (n.title || '').toLowerCase().includes(q) ||
+        (n.content || '').toLowerCase().includes(q) ||
         (n.folder && n.folder.toLowerCase().includes(q)) ||
-        (n.tags && n.tags.some(t => t.toLowerCase().includes(q)))
+        (Array.isArray(n.tags) && n.tags.some(t => (t || '').toLowerCase().includes(q)))
       );
     }
 
@@ -512,7 +513,7 @@ export default function NotesSection({ notes, onAddNote, onUpdateNote, onDeleteN
                     <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded-full font-mono text-slate-400">
                       {notes.filter(n => n.folder === folder).length}
                     </span>
-                    {!DEFAULT_FOLDERS.includes(folder) && (
+                    {Array.isArray(DEFAULT_FOLDERS) && !DEFAULT_FOLDERS.includes(folder) && (
                       <button
                         onClick={(e) => handleDeleteFolder(folder, e)}
                         className="text-slate-500 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"

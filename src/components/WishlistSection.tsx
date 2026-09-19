@@ -50,7 +50,8 @@ export default function WishlistSection({
   // Let's filter items that are bought = false to only show active wishes
   const wishlistItems = shoppingList.filter(item => {
     const cat = item.category?.toLowerCase() || '';
-    const isWish = cat === 'wishlist' || cat === 'clothing' || item.name.toLowerCase().includes('desejo') || item.name.toLowerCase().includes('wish');
+    const nameLower = (item.name || '').toLowerCase();
+    const isWish = cat === 'wishlist' || cat === 'clothing' || nameLower.includes('desejo') || nameLower.includes('wish');
     return isWish && !item.bought;
   });
 

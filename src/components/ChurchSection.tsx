@@ -433,11 +433,13 @@ export default function ChurchSection({ churchData, onUpdateChurch }: ChurchSect
     : 0;
 
   // Filter studies library
-  const categoriesList = ['All', ...Array.from(new Set(studies.map(s => s.category)))];
+  const categoriesList = ['All', ...Array.from(new Set(studies.map(s => s.category).filter(Boolean)))];
   const filteredStudies = studies.filter(s => {
-    const matchesSearch = s.title.toLowerCase().includes(studyFilter.toLowerCase()) || 
-                          s.verses.toLowerCase().includes(studyFilter.toLowerCase()) || 
-                          s.category.toLowerCase().includes(studyFilter.toLowerCase());
+    const q = (studyFilter || '').toLowerCase();
+    const matchesSearch = !q ||
+                          (s.title || '').toLowerCase().includes(q) || 
+                          (s.verses || '').toLowerCase().includes(q) || 
+                          (s.category || '').toLowerCase().includes(q);
     const matchesCategory = studyCategory === 'All' || s.category === studyCategory;
     return matchesSearch && matchesCategory;
   });

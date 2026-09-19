@@ -17,14 +17,14 @@ interface QueroComprarSectionProps {
 
 const CATEGORIES = [
   { id: 'clothes', name: 'Roupas', icon: Shirt, desc: 'Camisas, camisas de time, calças, shorts e casacos.', color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-950/40', defaultSubs: ['Camisas', 'Camisas de Time', 'Calças', 'Shorts', 'Jaquetas', 'Camisas Sociais', 'Bonés', 'Meias'] },
-  { id: 'shoes', name: 'Calçados', icon: Layers, desc: 'Tênis esportivos, sapatos, botas e chinelos.', color: 'text-rose-500 bg-rose-50 dark:bg-rose-950/40' },
-  { id: 'accessories', name: 'Acessórios', icon: Watch, desc: 'Relógios, óculos de sol, carteiras, cintos e joias.', color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' },
-  { id: 'caps', name: 'Bonés e Chapéus', icon: Sparkles, desc: 'Bonés de aba curva ou reta, gorros e chapéus.', color: 'text-cyan-500 bg-cyan-50 dark:bg-cyan-950/40' },
-  { id: 'bags', name: 'Mochilas e Bolsas', icon: Backpack, desc: 'Mochilas de viagem, bolsas transversais e malas.', color: 'text-teal-500 bg-teal-50 dark:bg-teal-950/40' },
-  { id: 'electronics', name: 'Eletrônicos', icon: Smartphone, desc: 'Fones, carregadores, caixas de som e periféricos.', color: 'text-sky-500 bg-sky-50 dark:bg-sky-950/40' },
-  { id: 'games', name: 'Games', icon: Gamepad2, desc: 'Consoles, mouses, teclados gamer e jogos.', color: 'text-violet-500 bg-violet-50 dark:bg-violet-950/40' },
-  { id: 'personal', name: 'Objetos Pessoais', icon: User, desc: 'Perfumes, cosméticos, fones, celulares e livros.', color: 'text-pink-500 bg-pink-50 dark:bg-pink-950/40', defaultTypes: ['Perfumes', 'Relógios', 'Carteiras', 'Mochilas', 'Óculos', 'Fones', 'Celulares', 'Tablets', 'Livros'] },
-  { id: 'professional', name: 'Artigos Profissionais', icon: Briefcase, desc: 'Equipamentos de trabalho, impressoras e ferramentas.', color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40', defaultTypes: ['Impressoras', 'Computadores', 'Equipamentos', 'Materiais', 'Ferramentas'] },
+  { id: 'shoes', name: 'Calçados', icon: Layers, desc: 'Tênis esportivos, sapatos, botas e chinelos.', color: 'text-rose-500 bg-rose-50 dark:bg-rose-950/40', defaultSubs: ['Tênis Esportivos', 'Sapatos Casuais', 'Chinelos & Sandálias', 'Botas', 'Chuteiras', 'Acessórios'] },
+  { id: 'accessories', name: 'Acessórios', icon: Watch, desc: 'Relógios, óculos de sol, carteiras, cintos e joias.', color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/40', defaultSubs: ['Relógios', 'Óculos de Sol', 'Carteiras', 'Cintos', 'Joias & Correntes', 'Pulseiras'] },
+  { id: 'caps', name: 'Bonés e Chapéus', icon: Sparkles, desc: 'Bonés de aba curva ou reta, gorros e chapéus.', color: 'text-cyan-500 bg-cyan-50 dark:bg-cyan-950/40', defaultSubs: ['Bonés Aba Curva', 'Bonés Aba Reta', 'Gorros', 'Chapéus', 'Viseiras'] },
+  { id: 'bags', name: 'Mochilas e Bolsas', icon: Backpack, desc: 'Mochilas de viagem, bolsas transversais e malas.', color: 'text-teal-500 bg-teal-50 dark:bg-teal-950/40', defaultSubs: ['Mochilas', 'Bolsas Transversais', 'Shoulder Bags', 'Malas de Viagem', 'Necessaires'] },
+  { id: 'electronics', name: 'Eletrônicos', icon: Smartphone, desc: 'Fones, carregadores, caixas de som e periféricos.', color: 'text-sky-500 bg-sky-50 dark:bg-sky-950/40', defaultSubs: ['Fones de Ouvido', 'Carregadores & Cabos', 'Caixas de Som', 'Periféricos PC', 'Smartwatches', 'Acessórios Celular'] },
+  { id: 'games', name: 'Games', icon: Gamepad2, desc: 'Consoles, mouses, teclados gamer e jogos.', color: 'text-violet-500 bg-violet-50 dark:bg-violet-950/40', defaultSubs: ['Consoles', 'Jogos', 'Mouses & Teclados Gamer', 'Headsets', 'Controles', 'Cadeiras Gamer', 'Acessórios'] },
+  { id: 'personal', name: 'Objetos Pessoais', icon: User, desc: 'Perfumes, cosméticos, fones, celulares e livros.', color: 'text-pink-500 bg-pink-50 dark:bg-pink-950/40', defaultSubs: ['Perfumes', 'Cosméticos & Skincare', 'Relógios', 'Carteiras', 'Óculos', 'Livros', 'Acessórios'], defaultTypes: ['Perfumes', 'Relógios', 'Carteiras', 'Mochilas', 'Óculos', 'Fones', 'Celulares', 'Tablets', 'Livros'] },
+  { id: 'professional', name: 'Artigos Profissionais', icon: Briefcase, desc: 'Equipamentos de trabalho, impressoras e ferramentas.', color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40', defaultSubs: ['Impressoras', 'Computadores & Notebooks', 'Monitores', 'Equipamentos', 'Materiais de Escritório', 'Ferramentas'], defaultTypes: ['Impressoras', 'Computadores', 'Equipamentos', 'Materiais', 'Ferramentas'] },
   { id: 'papelaria', name: 'Lista Papelaria', icon: FileText, desc: 'Cadernos, canetas, agendas, materiais e artigos de papelaria.', color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40', defaultSubs: ['Cadernos', 'Canetas', 'Marca-texto', 'Agendas & Planners', 'Papéis & Blocos', 'Acessórios'] },
   { id: 'gifts', name: 'Presentes', icon: Gift, desc: 'Controle de presentes e surpresas para familiares e amigos.', color: 'text-purple-500 bg-purple-50 dark:bg-purple-950/40' },
   { id: 'favorites', name: 'Favoritos', icon: Heart, desc: 'Desejos mais cobiçados de todas as categorias.', color: 'text-red-500 bg-red-50 dark:bg-red-950/40' },
@@ -199,10 +199,10 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
     if (confirm(`Deseja realmente excluir a categoria "${catName}"? Esta ação ocultará a categoria e todos os seus itens.`)) {
       updateModuleState(prev => {
         const deleted = prev.deletedCategories || [];
-        if (deleted.includes(catId)) return prev;
+        if (Array.isArray(deleted) && deleted.includes(catId)) return prev;
         return {
           ...prev,
-          deletedCategories: [...deleted, catId]
+          deletedCategories: [...(Array.isArray(deleted) ? deleted : []), catId]
         };
       });
       if (selectedCategoryId === catId) {
@@ -220,12 +220,12 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
       updateModuleState(prev => {
         const delMap = prev.deletedSubCategories || {};
         const currentList = delMap[catId] || [];
-        if (currentList.includes(subName)) return prev;
+        if (Array.isArray(currentList) && currentList.includes(subName)) return prev;
         return {
           ...prev,
           deletedSubCategories: {
             ...delMap,
-            [catId]: [...currentList, subName]
+            [catId]: [...(Array.isArray(currentList) ? currentList : []), subName]
           }
         };
       });
@@ -242,14 +242,14 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
 
     // Filter out items of deleted categories
     const deletedCats = state.deletedCategories || [];
-    list = list.filter(item => !deletedCats.includes(item.category));
+    list = list.filter(item => !(Array.isArray(deletedCats) && deletedCats.includes(item.category)));
 
     // Filter out items of deleted subcategories
     const deletedSubCatsMap = state.deletedSubCategories || {};
     list = list.filter(item => {
       if (!item.subCategory) return true;
       const delSubs = deletedSubCatsMap[item.category] || [];
-      return !delSubs.includes(item.subCategory);
+      return !(Array.isArray(delSubs) && delSubs.includes(item.subCategory));
     });
 
     // Category / View filter
@@ -318,7 +318,7 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
     
     const combined = [...mainCats, ...mappedCustoms, ...footerCats];
     const deleted = state.deletedCategories || [];
-    return combined.filter(c => !deleted.includes(c.id));
+    return combined.filter(c => !(Array.isArray(deleted) && deleted.includes(c.id)));
   }, [state.customCategories, state.deletedCategories]);
 
   // NEXT SPECIAL DATE COUNTDOWN FOR DETAILED PERSON VIEW
@@ -386,13 +386,13 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
     }
     if (agendaYearFilter !== 'all') {
       list = list.filter(item => {
-        if (!item.giftDate) return false;
+        if (!item.giftDate || typeof item.giftDate !== 'string') return false;
         return item.giftDate.includes(agendaYearFilter);
       });
     }
     if (agendaSearchDate.trim()) {
       const q = agendaSearchDate.toLowerCase().trim();
-      list = list.filter(item => item.giftDate && item.giftDate.toLowerCase().includes(q));
+      list = list.filter(item => item.giftDate && typeof item.giftDate === 'string' && item.giftDate.toLowerCase().includes(q));
     }
 
     return list;
@@ -460,7 +460,7 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
     
     // Filter out deleted subcategories
     const deletedSubs = state.deletedSubCategories?.[selectedCategoryId] || [];
-    return combined.filter(s => !deletedSubs.includes(s));
+    return combined.filter(s => !(Array.isArray(deletedSubs) && deletedSubs.includes(s)));
   }, [state.customSubCategories, mergedCategories, selectedCategoryId, state.deletedSubCategories]);
 
   // Personal custom types lookup
@@ -479,11 +479,11 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
 
   // Helper to identify Lista Papelaria
   const isPapelariaCategory = (catIdOrName?: string) => {
-    if (!catIdOrName) return false;
+    if (!catIdOrName || typeof catIdOrName !== 'string') return false;
     const lower = catIdOrName.toLowerCase().trim();
     if (lower === 'papelaria' || lower === 'lista papelaria' || lower.includes('papelaria')) return true;
     const found = mergedCategories.find(c => c.id === catIdOrName);
-    if (found && (found.name.toLowerCase().includes('papelaria') || found.id.toLowerCase().includes('papelaria'))) return true;
+    if (found && (((found.name || '').toLowerCase().includes('papelaria')) || ((found.id || '').toLowerCase().includes('papelaria')))) return true;
     return false;
   };
 
@@ -495,27 +495,30 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
     const custom = state.customSubCategories?.[formCategory] || [];
     const combined = [...defaultSubs, ...custom];
     const deletedSubs = state.deletedSubCategories?.[formCategory] || [];
-    return combined.filter(s => !deletedSubs.includes(s));
+    return combined.filter(s => !(Array.isArray(deletedSubs) && deletedSubs.includes(s)));
   }, [formCategory, mergedCategories, state.customSubCategories, state.deletedSubCategories]);
 
   // ADD CUSTOM SUBCATEGORY
   const handleAddSubCategory = () => {
     if (!newSubCatName.trim()) return;
     const catKey = selectedCategoryId || formCategory || 'clothes';
+    const subName = newSubCatName.trim();
     updateModuleState(prev => {
       const currentMap = prev.customSubCategories || {};
       const list = currentMap[catKey] || [];
-      if (list.includes(newSubCatName.trim())) return prev;
+      if (Array.isArray(list) && list.includes(subName)) return prev;
       return {
         ...prev,
         customSubCategories: {
           ...currentMap,
-          [catKey]: [...list, newSubCatName.trim()]
+          [catKey]: [...(Array.isArray(list) ? list : []), subName]
         }
       };
     });
+    setFormSubCategory(subName);
     setNewSubCatName('');
     setShowAddSubCatModal(false);
+    triggerSuccess(`Subcategoria "${subName}" adicionada com sucesso!`);
   };
 
   // SAVE PRODUCT (Add or Edit)
@@ -710,7 +713,8 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
   };
 
   // UTILITY RENDER HELPERS
-  const formatPrice = (v: number) => {
+  const formatPrice = (v?: number | null) => {
+    if (v === undefined || v === null || isNaN(v)) return 'R$ 0,00';
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
@@ -895,6 +899,7 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                       key={cat.id}
                       whileHover={{ y: -3, scale: 1.01 }}
                       onClick={() => {
+                        setClothingSubCategory('all');
                         if (cat.id === 'all') setView('all');
                         else if (cat.id === 'favorites') setView('favorites');
                         else if (cat.id === 'gifts') setView('people');
@@ -960,7 +965,7 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-[#111726] p-5 border border-slate-150 dark:border-slate-850 rounded-3xl shadow-3xs">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => { setView('home'); setSelectedCategoryId(''); }}
+                  onClick={() => { setView('home'); setSelectedCategoryId(''); setClothingSubCategory('all'); }}
                   className="p-2 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-full text-slate-500 dark:text-slate-450 transition-colors"
                 >
                   <ArrowLeft size={18} />
@@ -2284,65 +2289,22 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                   </div>
 
                   {/* Context-specific category fields */}
-                  {formCategory === 'clothes' && (
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Subcategoria de Roupas</label>
-                      <select
-                        value={formSubCategory}
-                        onChange={(e) => setFormSubCategory(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
-                      >
-                        <option value="">Selecione...</option>
-                        {clothingSubcategories.map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {isPapelariaCategory(formCategory) && (
+                  {formCategory !== 'gifts' && (
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Subcategoria de Papelaria</label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedCategoryId('papelaria');
-                            setShowAddSubCatModal(true);
-                          }}
-                          className="text-pink-600 hover:text-pink-700 dark:text-pink-400 p-0.5 rounded cursor-pointer"
-                          title="Nova subcategoria"
-                        >
-                          <Plus size={13} />
-                        </button>
-                      </div>
-                      <select
-                        value={formSubCategory}
-                        onChange={(e) => setFormSubCategory(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
-                      >
-                        <option value="">Selecione (Opcional)...</option>
-                        {categorySubcategoriesForForm.map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {!isPapelariaCategory(formCategory) && formCategory !== 'clothes' && formCategory !== 'personal' && formCategory !== 'professional' && formCategory !== 'gifts' && categorySubcategoriesForForm.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">Subcategoria</label>
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase">
+                          Subcategoria {mergedCategories.find(c => c.id === formCategory)?.name ? `(${mergedCategories.find(c => c.id === formCategory)?.name})` : ''}
+                        </label>
                         <button
                           type="button"
                           onClick={() => {
                             setSelectedCategoryId(formCategory);
                             setShowAddSubCatModal(true);
                           }}
-                          className="text-pink-600 hover:text-pink-700 dark:text-pink-400 p-0.5 rounded cursor-pointer"
+                          className="text-pink-600 hover:text-pink-700 dark:text-pink-400 p-0.5 rounded cursor-pointer flex items-center gap-0.5 text-[10px] font-bold"
                           title="Nova subcategoria"
                         >
-                          <Plus size={13} />
+                          <Plus size={12} /> Nova
                         </button>
                       </div>
                       <select
@@ -2953,7 +2915,9 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                   <Plus size={16} className="text-pink-650" />
                   Nova Subcategoria
                 </h3>
-                <p className="text-[11px] text-slate-450">Adicione uma subcategoria personalizada para as suas roupas.</p>
+                <p className="text-[11px] text-slate-450 dark:text-slate-500">
+                  Adicione uma subcategoria personalizada para {mergedCategories.find(c => c.id === (selectedCategoryId || formCategory))?.name || 'esta categoria'}.
+                </p>
               </div>
 
               <div className="space-y-1.5 text-xs font-medium">
@@ -2962,7 +2926,7 @@ export default function QueroComprarSection({ data, onUpdateData, onClose }: Que
                   type="text"
                   value={newSubCatName}
                   onChange={(e) => setNewSubCatName(e.target.value)}
-                  placeholder="Ex: Bonés de Time, Meias, Moletons..."
+                  placeholder="Digite o nome da subcategoria..."
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-pink-500 focus:outline-none"
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddSubCategory(); }}
                 />

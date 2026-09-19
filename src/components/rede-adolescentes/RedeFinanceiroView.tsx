@@ -61,9 +61,10 @@ export const RedeFinanceiroView: React.FC<RedeFinanceiroViewProps> = ({ data, on
     });
 
     // Planned revenue from shirts
-    const shirtRevenue = data.shirts.priceCategories.reduce((acc, curr) => acc + (curr.quantity * curr.pricePerPerson), 0);
+    const shirtCats = Array.isArray(data?.shirts?.priceCategories) ? data.shirts.priceCategories : [];
+    const shirtRevenue = shirtCats.reduce((acc, curr) => acc + ((Number(curr?.quantity) || 0) * (Number(curr?.pricePerPerson) || 0)), 0);
     // Planned revenue from trip
-    const tripRevenue = (data.trip.estimatedPeople || 0) * (data.trip.plannedFeePerPerson || 0);
+    const tripRevenue = (Number(data?.trip?.estimatedPeople) || 0) * (Number(data?.trip?.plannedFeePerPerson) || 0);
     const plannedRevenue = shirtRevenue + tripRevenue;
 
     const estimatedDifference = plannedRevenue - totalEstimated;
@@ -146,7 +147,10 @@ export const RedeFinanceiroView: React.FC<RedeFinanceiroViewProps> = ({ data, on
     }
   };
 
-  const formatBRL = (val: number) => {
+  const formatBRL = (val?: number | null) => {
+    if (val === undefined || val === null || isNaN(val)) {
+      return 'R$ 0,00';
+    }
     return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 

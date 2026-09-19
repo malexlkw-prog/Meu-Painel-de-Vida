@@ -339,10 +339,12 @@ export default function ProjectsSection({ onBackToDashboard }: ProjectsSectionPr
     updateWorkspace(ws => ({ ...ws, goals: (ws.goals || []).filter(g => g.id !== id) }));
   };
 
-  const filteredProjects = projects.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.category && p.category.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredProjects = projects.filter(p => {
+    const q = (searchTerm || '').toLowerCase();
+    return !q ||
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.category && p.category.toLowerCase().includes(q));
+  });
 
   return (
     <div className="w-full space-y-6">

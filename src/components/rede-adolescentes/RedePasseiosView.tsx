@@ -48,7 +48,10 @@ export const RedePasseiosView: React.FC<RedePasseiosViewProps> = ({ data, onUpda
     setIsEditing(false);
   };
 
-  const formatBRL = (val: number) => {
+  const formatBRL = (val?: number | null) => {
+    if (val === undefined || val === null || isNaN(val)) {
+      return 'R$ 0,00';
+    }
     return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
@@ -154,11 +157,11 @@ export const RedePasseiosView: React.FC<RedePasseiosViewProps> = ({ data, onUpda
           <div className="space-y-2">
             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Opções Pré-avaliadas:</span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {data.trip.destinationOptions.map(dest => (
+              {(data.trip?.destinationOptions || []).map(dest => (
                 <div 
                   key={dest}
                   className={`p-3 rounded-xl border text-center text-xs font-bold transition-all ${
-                    data.trip.destination.includes(dest)
+                    (data.trip?.destination || '').includes(dest)
                       ? 'bg-sky-500 text-white border-sky-500 shadow-sm'
                       : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                   }`}

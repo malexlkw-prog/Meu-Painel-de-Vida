@@ -96,7 +96,10 @@ export const RedeMateriaisView: React.FC<RedeMateriaisViewProps> = ({ data, onUp
     }
   };
 
-  const formatBRL = (val: number) => {
+  const formatBRL = (val?: number | null) => {
+    if (val === undefined || val === null || isNaN(val)) {
+      return 'R$ 0,00';
+    }
     return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 

@@ -93,7 +93,7 @@ export default function FinanceSection({ finance, onAdd, onDelete, onUpdate }: F
     .filter(t => {
       const matchesType = filterType === 'all' || t.type === filterType;
       const matchesCat = filterCat === 'all' || t.category === filterCat;
-      const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = !searchTerm || (t.description || '').toLowerCase().includes(searchTerm.toLowerCase());
       return matchesType && matchesCat && matchesSearch;
     })
     // Sort by date newest first, then id
@@ -263,7 +263,7 @@ export default function FinanceSection({ finance, onAdd, onDelete, onUpdate }: F
             </span>
           </div>
           <span className={`text-2xl font-black font-mono tracking-tight block mt-2 ${currentBalance >= 0 ? 'text-slate-850 dark:text-white' : 'text-rose-600 dark:text-rose-400'}`}>
-            R$ {currentBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {(currentBalance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </span>
         </div>
 
@@ -276,7 +276,7 @@ export default function FinanceSection({ finance, onAdd, onDelete, onUpdate }: F
             </span>
           </div>
           <span className="text-2xl font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400 block mt-2">
-            R$ {totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {(totalIncome || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </span>
         </div>
 
@@ -289,7 +289,7 @@ export default function FinanceSection({ finance, onAdd, onDelete, onUpdate }: F
             </span>
           </div>
           <span className="text-2xl font-black font-mono tracking-tight text-rose-600 dark:text-rose-400 block mt-2">
-            R$ {totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {(totalExpense || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </span>
         </div>
 
@@ -302,7 +302,7 @@ export default function FinanceSection({ finance, onAdd, onDelete, onUpdate }: F
             </span>
           </div>
           <span className={`text-2xl font-black font-mono tracking-tight block mt-2 ${monthlySavings >= 0 ? 'text-emerald-600 dark:text-emerald-450' : 'text-rose-500'}`}>
-            R$ {monthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {(monthlySavings || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </span>
         </div>
       </div>

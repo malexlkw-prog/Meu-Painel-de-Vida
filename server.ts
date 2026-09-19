@@ -393,6 +393,11 @@ async function startServer() {
 
   app.use(express.json({ limit: "15mb" }));
 
+  // Health check endpoint
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok" });
+  });
+
   // Shared server-side Gemini AI client initialization
   const apiKey = process.env.GEMINI_API_KEY;
   let ai: GoogleGenAI | null = null;

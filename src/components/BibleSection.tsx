@@ -192,8 +192,9 @@ export default function BibleSection({
 
   const handleCreateCollection = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newCollectionName.trim() && !collections.includes(newCollectionName.trim())) {
-      const updated = [...collections, newCollectionName.trim()];
+    const name = newCollectionName.trim();
+    if (name && (!Array.isArray(collections) || !collections.includes(name))) {
+      const updated = [...(Array.isArray(collections) ? collections : []), name];
       setCollections(updated);
       localStorage.setItem('bible_collections', JSON.stringify(updated));
       setNewCollectionName('');

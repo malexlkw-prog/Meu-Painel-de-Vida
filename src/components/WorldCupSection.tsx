@@ -38,7 +38,7 @@ const getPlayerDetail = (playerName: string, playerNum?: number, teamName?: stri
   }
   
   // Handcraft some fallback data for Croatia / Germany Stars if requested
-  const namesLower = playerName.toLowerCase();
+  const namesLower = (playerName || '').toLowerCase();
   if (namesLower.includes("modrić") || namesLower.includes("modric")) {
     return {
       number: 10,
@@ -782,7 +782,7 @@ export default function WorldCupSection() {
                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl pointer-events-none" />
                 <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-450 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-2.5 mb-3 flex items-center justify-between">
                   <span>{groupName}</span>
-                  {groupName.includes('Brasil') && <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] px-2 py-0.5 rounded-full font-black animate-pulse">CHAVE DE ELITE</span>}
+                  {(groupName || '').includes('Brasil') && <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] px-2 py-0.5 rounded-full font-black animate-pulse">CHAVE DE ELITE</span>}
                 </h3>
 
                 <div className="space-y-1.5">
@@ -872,7 +872,7 @@ export default function WorldCupSection() {
                         </div>
 
                         <div className="min-w-0 flex-1 space-y-0.5">
-                          <span className="font-extrabold text-xs truncate block text-slate-900 dark:text-white">{p.name} {p.name.includes('Danilo') ? '(C)' : ''}</span>
+                          <span className="font-extrabold text-xs truncate block text-slate-900 dark:text-white">{p.name} {(p.name || '').includes('Danilo') ? '(C)' : ''}</span>
                           <span className="text-[10px] text-slate-400 font-bold block">{p.club}</span>
                           
                           {/* Stats mini labels */}

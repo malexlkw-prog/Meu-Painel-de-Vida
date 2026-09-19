@@ -236,7 +236,7 @@ export default function ShoppingListSection({
     // backward compat fallback
     const itemCat = item.category || 'others';
     const matchesCategory = itemCat === activeCategoryTab;
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || (item.name || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const itemPriority = item.priority || 'medium';
     const matchesPriority = filterPriority === 'all' || itemPriority === filterPriority;

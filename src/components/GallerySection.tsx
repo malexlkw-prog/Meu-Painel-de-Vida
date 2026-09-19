@@ -145,18 +145,18 @@ export default function GallerySection() {
 
     // Filter by tag if selected
     if (selectedTag) {
-      result = result.filter(p => p.tags.includes(selectedTag));
+      result = result.filter(p => Array.isArray(p.tags) && p.tags.includes(selectedTag));
     }
 
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(p => 
-        p.title.toLowerCase().includes(query) ||
-        p.description.toLowerCase().includes(query) ||
-        p.location?.toLowerCase().includes(query) ||
-        p.album.toLowerCase().includes(query) ||
-        p.tags.some(t => t.toLowerCase().includes(query))
+        (p.title || '').toLowerCase().includes(query) ||
+        (p.description || '').toLowerCase().includes(query) ||
+        (p.location && p.location.toLowerCase().includes(query)) ||
+        (p.album || '').toLowerCase().includes(query) ||
+        (Array.isArray(p.tags) && p.tags.some(t => (t || '').toLowerCase().includes(query)))
       );
     }
 
@@ -379,10 +379,11 @@ export default function GallerySection() {
   // Tags adder
   const handleAddTag = () => {
     const text = metaEditState.newTagText.trim().replace('#', '');
-    if (text && !metaEditState.tags.includes(text)) {
+    const currentTags = metaEditState.tags || [];
+    if (text && (!Array.isArray(currentTags) || !currentTags.includes(text))) {
       setMetaEditState(prev => ({
         ...prev,
-        tags: [...prev.tags, text],
+        tags: [...(Array.isArray(prev.tags) ? prev.tags : []), text],
         newTagText: ''
       }));
     }

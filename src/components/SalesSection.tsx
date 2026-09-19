@@ -72,7 +72,7 @@ export default function SalesSection({
   // Filter sales
   const filteredSales = sales
     .filter(s => {
-      const matchesSearch = s.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = !searchTerm || (s.description || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCat = filterCat === 'all' || s.category === filterCat;
       return matchesSearch && matchesCat;
     })

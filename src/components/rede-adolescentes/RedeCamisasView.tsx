@@ -21,23 +21,45 @@ interface RedeCamisasViewProps {
 
 export const RedeCamisasView: React.FC<RedeCamisasViewProps> = ({ data, onUpdateData }) => {
   const [isEditingSpecs, setIsEditingSpecs] = useState(false);
-  const [specsForm, setSpecsForm] = useState<ShirtPlan>(data.shirts);
+  
+  const shirtsData = data?.shirts || {} as Partial<ShirtPlan>;
+  const rawPriceCategories = Array.isArray(shirtsData.priceCategories) ? shirtsData.priceCategories : [];
+
+  const [specsForm, setSpecsForm] = useState<any>({
+    model: shirtsData.model || 'Camiseta Algodão / Dry Confort',
+    color: shirtsData.color || 'A definir',
+    printDescription: shirtsData.printDescription || (shirtsData as any).printDetails || '',
+    printDetails: (shirtsData as any).printDetails || shirtsData.printDescription || '',
+    supplier: shirtsData.supplier || '',
+    estimatedQuantity: shirtsData.estimatedQuantity || 25,
+    unitCost: shirtsData.unitCost || 0,
+    shippingCost: shirtsData.shippingCost || 0,
+    additionalCosts: shirtsData.additionalCosts ?? (shirtsData as any).otherCosts ?? 0,
+    otherCosts: (shirtsData as any).otherCosts ?? shirtsData.additionalCosts ?? 0,
+    orderDeadline: shirtsData.orderDeadline || (shirtsData as any).deadline || '15/01/2027',
+    deadline: (shirtsData as any).deadline || shirtsData.orderDeadline || '15/01/2027',
+    notes: shirtsData.notes || ''
+  });
 
   // Calculations
   const productionCost = useMemo(() => {
-    const rawShirtsCost = (data.shirts.estimatedQuantity || 0) * (data.shirts.unitCost || 0);
-    const shipping = data.shirts.shippingCost || 0;
-    const extra = data.shirts.otherCosts || 0;
+    const rawShirtsCost = (Number(shirtsData.estimatedQuantity) || 0) * (Number(shirtsData.unitCost) || 0);
+    const shipping = Number(shirtsData.shippingCost) || 0;
+    const extra = Number(shirtsData.additionalCosts ?? (shirtsData as any)?.otherCosts) || 0;
     return rawShirtsCost + shipping + extra;
-  }, [data.shirts]);
+  }, [shirtsData]);
 
   const plannedRevenue = useMemo(() => {
-    return data.shirts.priceCategories.reduce((acc, curr) => acc + (curr.quantity * curr.pricePerPerson), 0);
-  }, [data.shirts.priceCategories]);
+    return rawPriceCategories.reduce((acc, curr) => {
+      const q = Number(curr?.quantity) || 0;
+      const p = Number(curr?.pricePerPerson) || 0;
+      return acc + (q * p);
+    }, 0);
+  }, [rawPriceCategories]);
 
   const totalShirtsAllocated = useMemo(() => {
-    return data.shirts.priceCategories.reduce((acc, curr) => acc + curr.quantity, 0);
-  }, [data.shirts.priceCategories]);
+    return rawPriceCategories.reduce((acc, curr) => acc + (Number(curr?.quantity) || 0), 0);
+  }, [rawPriceCategories]);
 
   const balance = plannedRevenue - productionCost;
 
@@ -48,24 +70,34 @@ export const RedeCamisasView: React.FC<RedeCamisasViewProps> = ({ data, onUpdate
         ...data.shirts,
         model: specsForm.model,
         color: specsForm.color,
-        printDetails: specsForm.printDetails,
+        printDescription: specsForm.printDescription || specsForm.printDetails || '',
+        printDetails: specsForm.printDetails || specsForm.printDescription || '',
         supplier: specsForm.supplier,
-        estimatedQuantity: specsForm.estimatedQuantity,
-        unitCost: specsForm.unitCost,
-        shippingCost: specsForm.shippingCost,
-        otherCosts: specsForm.otherCosts,
-        deadline: specsForm.deadline,
-        notes: specsForm.notes
+        estimatedQuantity: Number(specsForm.estimatedQuantity) || 0,
+        unitCost: Number(specsForm.unitCost) || 0,
+        shippingCost: Number(specsForm.shippingCost) || 0,
+        additionalCosts: Number(specsForm.additionalCosts ?? specsForm.otherCosts) || 0,
+        otherCosts: Number(specsForm.otherCosts ?? specsForm.additionalCosts) || 0,
+        orderDeadline: specsForm.orderDeadline || specsForm.deadline || '',
+        deadline: specsForm.deadline || specsForm.orderDeadline || '',
+        notes: specsForm.notes || ''
       }
     });
     setIsEditingSpecs(false);
   };
 
-  const handleUpdateCategory = (catName: string, field: 'quantity' | 'pricePerPerson', val: number) => {
-    const updated = data.shirts.priceCategories.map(c => {
-      if (c.category !== catName) return c;
-      const updatedCat = { ...c, [field]: val };
-      updatedCat.totalCategory = updatedCat.quantity * updatedCat.pricePerPerson;
+  const handleUpdateCategory = (targetIdOrName: string, field: 'quantity' | 'pricePerPerson', val: number) => {
+    const updated = rawPriceCategories.map((c, idx) => {
+      const match = c.id === targetIdOrName || 
+                    c.categoryName === targetIdOrName || 
+                    (c as any).category === targetIdOrName || 
+                    `cat-${idx}` === targetIdOrName;
+      if (!match) return c;
+      const updatedCat = { 
+        ...c, 
+        [field]: val,
+        categoryName: c.categoryName || (c as any).category || 'Categoria'
+      };
       return updatedCat;
     });
 
@@ -78,7 +110,10 @@ export const RedeCamisasView: React.FC<RedeCamisasViewProps> = ({ data, onUpdate
     });
   };
 
-  const formatBRL = (val: number) => {
+  const formatBRL = (val?: number | null) => {
+    if (val === undefined || val === null || isNaN(val)) {
+      return 'R$ 0,00';
+    }
     return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
@@ -116,7 +151,7 @@ export const RedeCamisasView: React.FC<RedeCamisasViewProps> = ({ data, onUpdate
             {formatBRL(productionCost)}
           </div>
           <div className="text-[11px] text-slate-400 font-medium">
-            {data.shirts.estimatedQuantity} unidades × {formatBRL(data.shirts.unitCost)} + frete
+            {Number(shirtsData.estimatedQuantity) || 0} unidades × {formatBRL(Number(shirtsData.unitCost) || 0)} + frete
           </div>
         </div>
 
@@ -151,7 +186,7 @@ export const RedeCamisasView: React.FC<RedeCamisasViewProps> = ({ data, onUpdate
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Prazo de Confecção</span>
           <div className="text-lg font-black text-slate-900 dark:text-white mt-1">
-            {data.shirts.deadline || 'A definir'}
+            {shirtsData.orderDeadline || (shirtsData as any)?.deadline || '15/01/2027'}
           </div>
           <div className="text-[11px] text-slate-400 font-medium">
             Distribuição planejada no 1º Encontro
@@ -168,20 +203,20 @@ export const RedeCamisasView: React.FC<RedeCamisasViewProps> = ({ data, onUpdate
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Modelo & Tecido</span>
-            <p className="text-sm font-bold text-slate-900 dark:text-white">{data.shirts.model}</p>
-            <p className="text-xs text-slate-400">Cor predominante: <strong className="text-slate-700 dark:text-slate-300">{data.shirts.color}</strong></p>
+            <p className="text-sm font-bold text-slate-900 dark:text-white">{shirtsData.model || 'Camiseta Algodão / Dry Confort'}</p>
+            <p className="text-xs text-slate-400">Cor predominante: <strong className="text-slate-700 dark:text-slate-300">{shirtsData.color || 'A definir'}</strong></p>
           </div>
 
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Estampa & Tema</span>
-            <p className="text-xs font-bold text-slate-900 dark:text-white leading-relaxed">{data.shirts.printDetails}</p>
+            <p className="text-xs font-bold text-slate-900 dark:text-white leading-relaxed">{shirtsData.printDescription || (shirtsData as any)?.printDetails || 'Sem estampa definida'}</p>
           </div>
 
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Fornecedor / Gráfica</span>
-            <p className="text-sm font-bold text-slate-900 dark:text-white">{data.shirts.supplier || 'Em cotação'}</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-white">{shirtsData.supplier || 'Em cotação'}</p>
             <p className="text-xs text-slate-400">
-              Frete: {formatBRL(data.shirts.shippingCost || 0)} • Outros: {formatBRL(data.shirts.otherCosts || 0)}
+              Frete: {formatBRL(shirtsData.shippingCost || 0)} • Outros: {formatBRL(shirtsData.additionalCosts ?? (shirtsData as any)?.otherCosts ?? 0)}
             </p>
           </div>
         </div>
@@ -212,42 +247,53 @@ export const RedeCamisasView: React.FC<RedeCamisasViewProps> = ({ data, onUpdate
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {data.shirts.priceCategories.map(cat => (
-                <tr key={cat.category} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                  <td className="px-4 py-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                    <span>{cat.category}</span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <input
-                      type="number"
-                      min="0"
-                      value={cat.quantity}
-                      onChange={(e) => handleUpdateCategory(cat.category, 'quantity', parseInt(e.target.value) || 0)}
-                      className="w-16 p-1 rounded-lg text-center font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono">
-                    <div className="flex items-center justify-end gap-1">
-                      <span className="text-slate-400">R$</span>
+              {rawPriceCategories.map((cat, idx) => {
+                const catId = cat.id || `cat-${idx}`;
+                const catName = cat.categoryName || (cat as any).category || `Categoria ${idx + 1}`;
+                const quantity = typeof cat.quantity === 'number' && !isNaN(cat.quantity) ? cat.quantity : 0;
+                const pricePerPerson = typeof cat.pricePerPerson === 'number' && !isNaN(cat.pricePerPerson) ? cat.pricePerPerson : 0;
+                const subtotal = quantity * pricePerPerson;
+                const targetKey = cat.id || cat.categoryName || (cat as any).category || `cat-${idx}`;
+
+                return (
+                  <tr key={targetKey} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="px-4 py-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                      <span>{catName}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
                       <input
                         type="number"
-                        step="0.5"
                         min="0"
-                        value={cat.pricePerPerson}
-                        onChange={(e) => handleUpdateCategory(cat.category, 'pricePerPerson', parseFloat(e.target.value) || 0)}
-                        className="w-20 p-1 rounded-lg text-right font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                        value={quantity}
+                        onChange={(e) => handleUpdateCategory(targetKey, 'quantity', parseInt(e.target.value) || 0)}
+                        className="w-16 p-1 rounded-lg text-center font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                       />
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono font-black text-slate-900 dark:text-white">
-                    {formatBRL(cat.quantity * cat.pricePerPerson)}
-                  </td>
-                  <td className="px-4 py-3 text-slate-400 italic">
-                    {cat.category.includes('Igreja') ? 'Totalmente subsidiado pela congregação' : 'Cobrança direta ou cota'}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="text-slate-400">R$</span>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          value={pricePerPerson}
+                          onChange={(e) => handleUpdateCategory(targetKey, 'pricePerPerson', parseFloat(e.target.value) || 0)}
+                          className="w-20 p-1 rounded-lg text-right font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-black text-slate-900 dark:text-white">
+                      {formatBRL(subtotal)}
+                    </td>
+                    <td className="px-4 py-3 text-slate-400 italic">
+                      {(catName || '').toLowerCase().includes('igreja') || (catName || '').toLowerCase().includes('subsídio') || (catName || '').toLowerCase().includes('subsidio')
+                        ? 'Totalmente subsidiado pela congregação' 
+                        : 'Cobrança direta ou cota'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

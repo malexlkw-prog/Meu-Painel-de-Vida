@@ -29,7 +29,8 @@ export const RedeEventosEspeciaisView: React.FC<RedeEventosEspeciaisViewProps> =
   const [editingModal, setEditingModal] = useState(false);
   const [formEvent, setFormEvent] = useState<SpecialEvent | null>(null);
 
-  const getEventIcon = (id: string) => {
+  const getEventIcon = (id?: string) => {
+    if (!id) return Gift;
     if (id.includes('cinema')) return Film;
     if (id.includes('gincana-1')) return Trophy;
     if (id.includes('noite')) return Moon;
@@ -204,7 +205,7 @@ export const RedeEventosEspeciaisView: React.FC<RedeEventosEspeciaisViewProps> =
                 <Sparkles size={15} className="text-amber-500" /> Destaque & Logística do Evento
               </h4>
 
-              {selectedEvent.id.includes('cinema') && (
+              {selectedEvent?.id?.includes('cinema') && (
                 <div className="space-y-2 text-xs">
                   <p className="text-slate-500 dark:text-slate-400">
                     Sugestões de filmes bíblicos e edificantes para debater:
@@ -222,7 +223,7 @@ export const RedeEventosEspeciaisView: React.FC<RedeEventosEspeciaisViewProps> =
                 </div>
               )}
 
-              {selectedEvent.id.includes('gincana-1') && (
+              {selectedEvent?.id?.includes('gincana-1') && (
                 <div className="space-y-2 text-xs">
                   <p className="text-slate-500 dark:text-slate-400">
                     Grandes provas bíblicas baseadas na leitura de <strong>Mateus 1 a 28</strong>:
@@ -236,7 +237,7 @@ export const RedeEventosEspeciaisView: React.FC<RedeEventosEspeciaisViewProps> =
                 </div>
               )}
 
-              {selectedEvent.id.includes('noite') && (
+              {selectedEvent?.id?.includes('noite') && (
                 <div className="space-y-2 text-xs">
                   <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
                     <span className="font-bold block">Roda de conversa temática:</span>
@@ -251,7 +252,7 @@ export const RedeEventosEspeciaisView: React.FC<RedeEventosEspeciaisViewProps> =
                 </div>
               )}
 
-              {selectedEvent.id.includes('passeio') && (
+              {selectedEvent?.id?.includes('passeio') && (
                 <div className="space-y-2 text-xs">
                   <p className="text-slate-500 dark:text-slate-400">
                     Opções de lazer planejadas:
@@ -269,7 +270,7 @@ export const RedeEventosEspeciaisView: React.FC<RedeEventosEspeciaisViewProps> =
                 </div>
               )}
 
-              {selectedEvent.id.includes('adolescentes-acao') && (
+              {selectedEvent?.id?.includes('adolescentes-acao') && (
                 <div className="space-y-2 text-xs">
                   <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400">
                     <span className="font-bold block">Base Bíblica: Marcos 16:15</span>
@@ -288,7 +289,7 @@ export const RedeEventosEspeciaisView: React.FC<RedeEventosEspeciaisViewProps> =
                 </div>
               )}
 
-              {selectedEvent.id.includes('gincana-2') && (
+              {selectedEvent?.id?.includes('gincana-2') && (
                 <div className="space-y-2 text-xs">
                   <p className="text-slate-500 dark:text-slate-400">
                     Grande encerramento com revisão de todo o ano de 2027:

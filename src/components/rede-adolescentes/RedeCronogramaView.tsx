@@ -43,24 +43,25 @@ export const RedeCronogramaView: React.FC<RedeCronogramaViewProps> = ({ data, on
     const list: TimelineItem[] = [];
 
     // Add cycles
-    data.cycles.forEach(cycle => {
-      cycle.weeks.forEach(w => {
+    (data.cycles || []).forEach(cycle => {
+      (cycle.weeks || []).forEach(w => {
         let month = 'Outro';
-        if (w.date.includes('/02/')) month = 'Fevereiro';
-        else if (w.date.includes('/03/')) month = 'Março';
-        else if (w.date.includes('/04/')) month = 'Abril';
-        else if (w.date.includes('/05/')) month = 'Maio';
-        else if (w.date.includes('/06/')) month = 'Junho';
-        else if (w.date.includes('07') || w.date.includes('Julho')) month = 'Julho';
-        else if (w.date.includes('/08/')) month = 'Agosto';
-        else if (w.date.includes('/09/')) month = 'Setembro';
-        else if (w.date.includes('/10/')) month = 'Outubro';
-        else if (w.date.includes('/11/')) month = 'Novembro';
-        else if (w.date.includes('/12/')) month = 'Dezembro';
+        const dateStr = w.date || '';
+        if (dateStr.includes('/02/')) month = 'Fevereiro';
+        else if (dateStr.includes('/03/')) month = 'Março';
+        else if (dateStr.includes('/04/')) month = 'Abril';
+        else if (dateStr.includes('/05/')) month = 'Maio';
+        else if (dateStr.includes('/06/')) month = 'Junho';
+        else if (dateStr.includes('07') || dateStr.includes('Julho')) month = 'Julho';
+        else if (dateStr.includes('/08/')) month = 'Agosto';
+        else if (dateStr.includes('/09/')) month = 'Setembro';
+        else if (dateStr.includes('/10/')) month = 'Outubro';
+        else if (dateStr.includes('/11/')) month = 'Novembro';
+        else if (dateStr.includes('/12/')) month = 'Dezembro';
 
         list.push({
           id: w.id,
-          date: w.date,
+          date: w.date || '',
           title: w.theme,
           cycleName: cycle.name,
           cycleNumber: cycle.number,
@@ -73,17 +74,18 @@ export const RedeCronogramaView: React.FC<RedeCronogramaViewProps> = ({ data, on
     });
 
     // Add special events
-    data.specialEvents.forEach(evt => {
+    (data.specialEvents || []).forEach(evt => {
       let month = 'Outro';
-      if (evt.date.includes('/04/')) month = 'Abril';
-      else if (evt.date.includes('/05/')) month = 'Maio';
-      else if (evt.date.includes('/09/')) month = 'Setembro';
-      else if (evt.date.includes('/11/')) month = 'Novembro';
-      else if (evt.date.includes('/12/')) month = 'Dezembro';
+      const evtDate = evt.date || '';
+      if (evtDate.includes('/04/')) month = 'Abril';
+      else if (evtDate.includes('/05/')) month = 'Maio';
+      else if (evtDate.includes('/09/')) month = 'Setembro';
+      else if (evtDate.includes('/11/')) month = 'Novembro';
+      else if (evtDate.includes('/12/')) month = 'Dezembro';
 
       list.push({
         id: evt.id,
-        date: evt.date,
+        date: evt.date || '',
         title: `🎉 ${evt.name}`,
         description: `${evt.description} • Responsável: ${evt.responsible || 'Equipe'}`,
         isSpecial: true,
@@ -94,6 +96,7 @@ export const RedeCronogramaView: React.FC<RedeCronogramaViewProps> = ({ data, on
 
     // Sort chronologically by 2027 date
     const parseDateForSort = (dStr: string) => {
+      if (!dStr) return 0;
       if (dStr.includes('10/07')) return new Date(2027, 6, 10).getTime();
       const parts = dStr.split('/');
       if (parts.length === 3) {
@@ -107,9 +110,10 @@ export const RedeCronogramaView: React.FC<RedeCronogramaViewProps> = ({ data, on
 
   const filteredTimeline = useMemo(() => {
     return timeline.filter(item => {
-      const matchSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        item.date.includes(searchTerm);
+      const q = (searchTerm || '').toLowerCase();
+      const matchSearch = !q || (item.title || '').toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q)) ||
+        (item.date && item.date.includes(searchTerm));
       
       const matchMonth = selectedMonth === 'todos' || item.month === selectedMonth;
       

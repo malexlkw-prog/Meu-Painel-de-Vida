@@ -666,8 +666,9 @@ export default function SeteSection({ data, onApplyActions, onCloseSete, siteDat
 
   // Filters
   const filteredThreads = threads.filter(t => {
-    const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.messages.some(m => m.text.toLowerCase().includes(searchQuery.toLowerCase()));
+    const q = (searchQuery || '').toLowerCase();
+    const matchesSearch = !q || (t.title || '').toLowerCase().includes(q) ||
+      (Array.isArray(t.messages) && t.messages.some(m => (m.text || '').toLowerCase().includes(q)));
     
     if (starredOnly) {
       return matchesSearch && t.isStarred;

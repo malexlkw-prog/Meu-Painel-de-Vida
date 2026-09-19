@@ -352,12 +352,25 @@ const uploadBase64ToStorage = async (base64Str: string, moduleName: string, item
     console.log(`[Storage] Iniciando upload de imagem para: ${path}`);
     const storageRef = ref(storage, path);
     
-    await uploadString(storageRef, base64Str, 'data_url');
+    await uploadString(storageRef, base64Str, 'data_url', {
+      contentType: mimeType,
+      customMetadata: {
+        module: moduleName,
+        uploadedAt: new Date().toISOString()
+      }
+    });
     const downloadUrl = await getDownloadURL(storageRef);
     console.log(`[Storage] Upload concluído com sucesso. URL pública: ${downloadUrl}`);
     return downloadUrl;
   } catch (err: any) {
-    console.error(`[Storage] Erro no upload de base64 para o modulo ${moduleName}:`, err);
+    console.error(`[Storage] Erro no upload de imagem para o modulo ${moduleName}:`, err);
+    // Dispara evento para notificar modal de auxílio de CORS e ativação de Storage
+    window.dispatchEvent(new CustomEvent('firebase-storage-cors-error', {
+      detail: { 
+        bucket: storage.app.options.storageBucket || 'meu-painel-e6a63.firebasestorage.app',
+        error: err?.message || String(err)
+      }
+    }));
     return base64Str;
   }
 };
@@ -2074,64 +2087,64 @@ export default function App() {
     const results: Array<{ id: string, label: string, module: string, tab: string }> = [];
 
     // Search shopping items
-    data.shoppingList.forEach(item => {
-      if (item.name.toLowerCase().includes(query)) {
+    (data.shoppingList || []).forEach(item => {
+      if ((item.name || '').toLowerCase().includes(query)) {
         results.push({ id: item.id, label: `🛍️ Compras: ${item.name}`, module: 'Compras', tab: 'shoppingList' });
       }
     });
 
     // Search tasks
-    data.tasks.forEach(t => {
-      if (t.text.toLowerCase().includes(query)) {
+    (data.tasks || []).forEach(t => {
+      if ((t.text || '').toLowerCase().includes(query)) {
         results.push({ id: t.id, label: `📋 Tarefa: ${t.text}`, module: 'Tarefas', tab: 'tasks' });
       }
     });
 
     // Search schedule
-    data.schedule.forEach(s => {
-      if (s.activity.toLowerCase().includes(query)) {
+    (data.schedule || []).forEach(s => {
+      if ((s.activity || '').toLowerCase().includes(query)) {
         results.push({ id: s.id, label: `⏰ Cronograma: [${s.time}] ${s.activity}`, module: 'Cronograma', tab: 'schedule' });
       }
     });
 
     // Search study subjects
-    data.studies.forEach(s => {
-      if (s.name.toLowerCase().includes(query) || s.contentsStudied.toLowerCase().includes(query)) {
+    (data.studies || []).forEach(s => {
+      if ((s.name || '').toLowerCase().includes(query) || (s.contentsStudied || '').toLowerCase().includes(query)) {
         results.push({ id: s.id, label: `🎓 Estudos: ${s.name}`, module: 'Estudos', tab: 'studies' });
       }
     });
 
     // Search music
-    data.music.tracks.forEach(track => {
-      if (track.title.toLowerCase().includes(query) || track.artist.toLowerCase().includes(query)) {
+    (data.music?.tracks || []).forEach(track => {
+      if ((track.title || '').toLowerCase().includes(query) || (track.artist || '').toLowerCase().includes(query)) {
         results.push({ id: track.id, label: `🎵 Música: ${track.title} - ${track.artist}`, module: 'Música', tab: 'music' });
       }
     });
 
     // Search reminders sticky notes
-    data.reminders.forEach(r => {
-      if (r.text.toLowerCase().includes(query)) {
+    (data.reminders || []).forEach(r => {
+      if ((r.text || '').toLowerCase().includes(query)) {
         results.push({ id: r.id, label: `🔔 Lembrete: ${r.text}`, module: 'Lembretes', tab: 'reminders' });
       }
     });
 
     // Search cash flow transactions description
-    data.finance.forEach(f => {
-      if (f.description.toLowerCase().includes(query)) {
+    (data.finance || []).forEach(f => {
+      if ((f.description || '').toLowerCase().includes(query)) {
         results.push({ id: f.id, label: `💰 Finanças: ${f.description} (R$ ${f.amount})`, module: 'Financeiro', tab: 'finance' });
       }
     });
 
     // Search Notes
     (data.notes || []).forEach(n => {
-      if (n.title.toLowerCase().includes(query) || n.content.toLowerCase().includes(query)) {
+      if ((n.title || '').toLowerCase().includes(query) || (n.content || '').toLowerCase().includes(query)) {
         results.push({ id: n.id, label: `📝 Nota: ${n.title}`, module: 'Notas', tab: 'notes' });
       }
     });
 
     // Search Projects
     (data.creativityProjects || []).forEach(p => {
-      if (p.title.toLowerCase().includes(query) || p.description.toLowerCase().includes(query)) {
+      if ((p.title || '').toLowerCase().includes(query) || (p.description || '').toLowerCase().includes(query)) {
         results.push({ id: p.id, label: `🎨 Projeto: ${p.title}`, module: 'Criatividade', tab: 'creativity' });
       }
     });
@@ -2139,21 +2152,21 @@ export default function App() {
     // Search Church Events, Commitments or Studies
     if (data.church) {
       (data.church.events || []).forEach(e => {
-        if (e.title.toLowerCase().includes(query) || e.description.toLowerCase().includes(query)) {
+        if ((e.title || '').toLowerCase().includes(query) || (e.description || '').toLowerCase().includes(query)) {
           results.push({ id: e.id, label: `⛪ Igreja Evento: ${e.title}`, module: 'Igreja', tab: 'church' });
         }
       });
       (data.church.studies || []).forEach(st => {
-        if (st.theme.toLowerCase().includes(query) || st.notes.toLowerCase().includes(query)) {
+        if ((st.theme || '').toLowerCase().includes(query) || (st.notes || '').toLowerCase().includes(query)) {
           results.push({ id: st.id, label: `⛪ Estudo Teologia: ${st.theme}`, module: 'Igreja', tab: 'church' });
         }
       });
     }
 
     // Search YouTube Saved Videos
-    if (data.youtube && data.youtube.saved) {
+    if (data.youtube && Array.isArray(data.youtube.saved)) {
       data.youtube.saved.forEach(sv => {
-        if (sv.title.toLowerCase().includes(query) || sv.channelTitle.toLowerCase().includes(query)) {
+        if ((sv.title || '').toLowerCase().includes(query) || (sv.channelTitle || '').toLowerCase().includes(query)) {
           results.push({ id: sv.id, label: `▶️ Mídia Vídeo: ${sv.title}`, module: 'Mídias YT', tab: 'youtube' });
         }
       });
@@ -3279,7 +3292,7 @@ export default function App() {
             )}
 
             {/* 6. BÍBLIA & IGREJA (MAXIMUM PRIORITY - COMPLETELY REBUILT) */}
-            {activeTab === 'bible' && (
+            {(activeTab === 'bible' || activeTab === 'church') && (
               <BibleSection 
                 bibleState={data.bible}
                 onSetCurrentBook={setBibleCurrentBook}
@@ -3343,8 +3356,124 @@ export default function App() {
               </div>
             )}
 
-            {/* 8. SISTEMA & CONFIGURAÇÃO */}
-            {activeTab === 'system' && (
+            {/* 8. GALERIA PESSOAL */}
+            {activeTab === 'gallery' && (
+              <div className="w-full space-y-6">
+                <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setActiveTab('dashboard')}
+                      className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 text-slate-800 dark:text-white cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <span className="text-sky-500 font-extrabold text-sm">←</span>
+                      <span>Voltar ao Dashboard</span>
+                    </button>
+                    <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
+                    <div>
+                      <h2 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Módulo Ativo</h2>
+                      <p className="text-sm font-black text-sky-500 flex items-center gap-1.5">
+                        <ImageIcon size={16} /> Galeria Pessoal
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <GallerySection />
+              </div>
+            )}
+
+            {/* 9. MÚSICAS & ARTISTAS */}
+            {activeTab === 'music' && (
+              <div className="w-full space-y-6">
+                <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setActiveTab('dashboard')}
+                      className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 text-slate-800 dark:text-white cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <span className="text-pink-500 font-extrabold text-sm">←</span>
+                      <span>Voltar ao Dashboard</span>
+                    </button>
+                    <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
+                    <div>
+                      <h2 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Módulo Ativo</h2>
+                      <p className="text-sm font-black text-pink-500 flex items-center gap-1.5">
+                        <Music size={16} /> Músicas & Artistas
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <MusicSection
+                  music={data.music || INITIAL_DATA.music}
+                  onAddTrack={addMusicTrack}
+                  onDeleteTrack={deleteMusicTrack}
+                  onAddArtist={addMusicArtist}
+                  onDeleteArtist={deleteMusicArtist}
+                  onUpdateMetadata={updateMusicMetadata}
+                  onUpdateTrack={updateMusicTrack}
+                  onUpdateArtist={updateMusicArtist}
+                />
+              </div>
+            )}
+
+            {/* 10. CENTRAL DE MÍDIA & YOUTUBE */}
+            {activeTab === 'youtube' && (
+              <div className="w-full space-y-6">
+                <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setActiveTab('dashboard')}
+                      className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 text-slate-800 dark:text-white cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <span className="text-red-500 font-extrabold text-sm">←</span>
+                      <span>Voltar ao Dashboard</span>
+                    </button>
+                    <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
+                    <div>
+                      <h2 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Módulo Ativo</h2>
+                      <p className="text-sm font-black text-red-500 flex items-center gap-1.5">
+                        <Youtube size={16} /> Central de Mídia & YouTube
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <YouTubeSection
+                  youtubeData={data.youtube}
+                  onUpdateStates={(updated) => setData(prev => ({ ...prev, youtube: updated }))}
+                />
+              </div>
+            )}
+
+            {/* 11. COPA DO MUNDO 2026 */}
+            {(activeTab === 'worldcup' || activeTab === 'copa') && (
+              <div className="w-full space-y-6">
+                <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setActiveTab('dashboard')}
+                      className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 text-slate-800 dark:text-white cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <span className="text-amber-500 font-extrabold text-sm">←</span>
+                      <span>Voltar ao Dashboard</span>
+                    </button>
+                    <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
+                    <div>
+                      <h2 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Módulo Ativo</h2>
+                      <p className="text-sm font-black text-amber-500 flex items-center gap-1.5">
+                        <Trophy size={16} /> Copa do Mundo 2026
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <WorldCupSection />
+              </div>
+            )}
+
+            {/* 12. SISTEMA & CONFIGURAÇÃO */}
+            {(activeTab === 'system' || activeTab === 'settings') && (
               <div className="w-full space-y-6">
                 <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm border border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-4">
@@ -3445,48 +3574,36 @@ export default function App() {
               <div>
                 <span className="font-bold block text-slate-800 dark:text-slate-100 mb-1">Como resolver permanentemente?</span>
                 <p className="text-xs text-slate-400">
-                  Você precisa configurar as permissões de acesso multiplataforma (CORS) no bucket do seu Firebase. Siga os passos simples abaixo:
+                  O erro ocorre quando o Cloud Storage ainda não foi ativado no Firebase Console ou quando o bucket ainda não possui regras de CORS para permitir uploads do seu domínio. Siga os passos:
+                </p>
+              </div>
+
+              {/* Passo 0 */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-bold shrink-0">1</span>
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-200">Verifique se o Firebase Storage está ativado</span>
+                </div>
+                <p className="text-xs pl-7 text-slate-400">
+                  Acesse o <strong className="text-indigo-450">Console do Firebase &gt; Build &gt; Storage</strong> e clique em <strong className="text-indigo-450">Começar / Primeiros passos</strong> caso o Storage ainda não tenha sido iniciado no projeto.
                 </p>
               </div>
 
               {/* Passo 1 */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-bold shrink-0">1</span>
-                  <span className="font-bold text-xs text-slate-700 dark:text-slate-200">Crie o arquivo de regras <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-indigo-500 font-mono">cors.json</code></span>
-                </div>
-                <p className="text-xs pl-7 text-slate-400">
-                  Crie um arquivo de texto simples no seu computador chamado <code className="font-mono bg-slate-50 dark:bg-slate-850 px-1.5 py-0.5 rounded">cors.json</code> com este conteúdo:
-                </p>
-                <div className="pl-7">
-                  <pre className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl text-[11px] font-mono border border-slate-100 dark:border-white/5 text-slate-500 dark:text-slate-300 overflow-x-auto select-all max-h-36">
-{`[
-  {
-    "origin": ["*"],
-    "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
-    "responseHeader": ["Content-Type", "Authorization", "x-goog-meta-*"],
-    "maxAgeSeconds": 3600
-  }
-]`}
-                  </pre>
-                </div>
-              </div>
-
-              {/* Passo 2 */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-bold shrink-0">2</span>
-                  <span className="font-bold text-xs text-slate-700 dark:text-slate-200">Aplique a regra no terminal ou Cloud Shell</span>
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-200">Aplique o arquivo <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-indigo-500 font-mono">cors.json</code></span>
                 </div>
                 <p className="text-xs pl-7 text-slate-400">
-                  Abra o terminal do seu computador (ou o <strong className="font-bold">Google Cloud Shell</strong> do seu console do Firebase/Google Cloud) e execute o comando abaixo na mesma pasta onde salvou o arquivo:
+                  O arquivo <code className="font-mono bg-slate-50 dark:bg-slate-850 px-1.5 py-0.5 rounded">cors.json</code> já está pronto na raiz do seu projeto. Basta executar no seu terminal ou no <strong>Google Cloud Shell</strong>:
                 </p>
                 <div className="pl-7">
                   <pre className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl text-[11px] font-mono border border-slate-100 dark:border-white/5 text-indigo-500 dark:text-indigo-400 overflow-x-auto select-all">
 {`gcloud storage buckets update gs://${corsErrorDetails?.bucket || 'meu-painel-e6a63.firebasestorage.app'} --cors-file=cors.json`}
                   </pre>
                   <p className="text-[10px] text-slate-400 mt-1.5">
-                    Caso prefira usar o utilitário antigo <code className="font-mono bg-slate-50 dark:bg-slate-850 px-1 py-0.5 rounded">gsutil</code>:
+                    Ou via utilitário <code className="font-mono bg-slate-50 dark:bg-slate-850 px-1 py-0.5 rounded">gsutil</code>:
                   </p>
                   <pre className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl text-[11px] font-mono border border-slate-100 dark:border-white/5 text-indigo-500 dark:text-indigo-400 overflow-x-auto mt-1 select-all">
 {`gsutil cors set cors.json gs://${corsErrorDetails?.bucket || 'meu-painel-e6a63.firebasestorage.app'}`}
