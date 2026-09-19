@@ -83,10 +83,9 @@ import { RedeAdolescentesSection } from './components/RedeAdolescentesSection';
 import { getAllPhotos, getAlbums } from './utils/galleryDB';
 
 // Firebase imports
-import { db, storage } from './lib/firebase';
+import { db } from './lib/firebase';
 import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const VERSES_OF_THE_DAY = [
   { text: "O Senhor é o meu pastor, nada me faltará.", ref: "Salmos 23:1" },
@@ -338,50 +337,17 @@ const generateUuid = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
 
-const uploadBase64ToStorage = async (base64Str: string, moduleName: string, itemId: string): Promise<string> => {
-  try {
-    const mimeMatch = base64Str.match(/^data:(image\/[a-zA-Z0-9.-]+);base64,/);
-    let mimeType = 'image/jpeg';
-    let extension = 'jpg';
-    if (mimeMatch) {
-      mimeType = mimeMatch[1];
-      extension = mimeType.split('/')[1] || 'jpg';
-    }
-    
-    const path = `painel_photos/main/${moduleName}/${itemId || generateUuid()}_${Date.now()}.${extension}`;
-    console.log(`[Storage] Iniciando upload de imagem para: ${path}`);
-    const storageRef = ref(storage, path);
-    
-    await uploadString(storageRef, base64Str, 'data_url', {
-      contentType: mimeType,
-      customMetadata: {
-        module: moduleName,
-        uploadedAt: new Date().toISOString()
-      }
-    });
-    const downloadUrl = await getDownloadURL(storageRef);
-    console.log(`[Storage] Upload concluído com sucesso. URL pública: ${downloadUrl}`);
-    return downloadUrl;
-  } catch (err: any) {
-    console.error(`[Storage] Erro no upload de imagem para o modulo ${moduleName}:`, err);
-    // Dispara evento para notificar modal de auxílio de CORS e ativação de Storage
-    window.dispatchEvent(new CustomEvent('firebase-storage-cors-error', {
-      detail: { 
-        bucket: storage.app.options.storageBucket || 'meu-painel-e6a63.firebasestorage.app',
-        error: err?.message || String(err)
-      }
-    }));
-    return base64Str;
-  }
-};
-
 const sanitizeAndUploadImages = async (obj: any, moduleName: string, itemId: string): Promise<any> => {
   if (obj === null || obj === undefined) return obj;
   
   if (isBase64Image(obj)) {
-    console.log(`[Sanitizer] Comprimindo imagem grande para o módulo ${moduleName}...`);
-    const compressed = await compressImage(obj, 350, 350, 0.5);
-    return await uploadBase64ToStorage(compressed, moduleName, itemId);
+    // Preserva imagens base64 compactas sem recompressão
+    if (typeof obj === 'string' && obj.length < 50000) {
+      return obj;
+    }
+    // Otimiza e comprime imagens base64 no cliente para armazenamento direto e ultraleve no Firestore
+    const compressed = await compressImage(obj, 450, 450, 0.65);
+    return compressed;
   }
   
   if (Array.isArray(obj)) {
@@ -535,10 +501,6 @@ export default function App() {
   const hasLoadedFromServerRef = useRef<boolean>(false);
   const [hasLoadedFromServer, setHasLoadedFromServer] = useState<boolean>(false);
   const isResettingDataRef = useRef<boolean>(false);
-
-  // Storage CORS Error States
-  const [corsErrorOpen, setCorsErrorOpen] = useState<boolean>(false);
-  const [corsErrorDetails, setCorsErrorDetails] = useState<{ bucket: string } | null>(null);
 
   // States and refs for Firestore Architecture
   const [loadingModuleData, setLoadingModuleData] = useState<boolean>(false);
@@ -1413,21 +1375,6 @@ export default function App() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Listener para erros de CORS no Firebase Storage
-  useEffect(() => {
-    const handleCorsError = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const bucket = customEvent.detail?.bucket || 'meu-painel-e6a63.firebasestorage.app';
-      setCorsErrorDetails({ bucket });
-      setCorsErrorOpen(true);
-    };
-
-    window.addEventListener('firebase-storage-cors-error', handleCorsError);
-    return () => {
-      window.removeEventListener('firebase-storage-cors-error', handleCorsError);
-    };
   }, []);
 
   // 3. Dynamic Mutations
@@ -3539,90 +3486,6 @@ export default function App() {
         © 2026 Meu Painel de Vida TESTE • Todos os direitos reservados. Projeto local 100% persistivo offline.
       </footer>
       </div>
-
-      {/* Modal de Instalação de CORS para Firebase Storage */}
-      {corsErrorOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[999] overflow-y-auto">
-          <div className="bg-white dark:bg-[#0f172a] rounded-3xl max-w-2xl w-full border border-slate-100 dark:border-indigo-500/20 shadow-2xl p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-start justify-between gap-4 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
-                  <AlertCircle size={24} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-800 dark:text-white leading-tight">
-                    CORS Necessário no Firebase Storage
-                  </h3>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
-                    Seu navegador bloqueou o envio da imagem por falta de regras CORS.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setCorsErrorOpen(false)}
-                className="p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-white transition-all cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4 text-slate-600 dark:text-slate-300 text-sm">
-              <div className="p-4 bg-emerald-550/10 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xs text-emerald-700 dark:text-emerald-400 font-medium">
-                ✨ <strong className="font-bold">Salvamento Garantido:</strong> Não se preocupe! Nós salvamos sua imagem de forma segura no Firestore diretamente (como string codificada) para você não perder nenhum dado! Mas para manter o sistema super rápido, recomendamos configurar o CORS no seu Storage.
-              </div>
-
-              <div>
-                <span className="font-bold block text-slate-800 dark:text-slate-100 mb-1">Como resolver permanentemente?</span>
-                <p className="text-xs text-slate-400">
-                  O erro ocorre quando o Cloud Storage ainda não foi ativado no Firebase Console ou quando o bucket ainda não possui regras de CORS para permitir uploads do seu domínio. Siga os passos:
-                </p>
-              </div>
-
-              {/* Passo 0 */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-bold shrink-0">1</span>
-                  <span className="font-bold text-xs text-slate-700 dark:text-slate-200">Verifique se o Firebase Storage está ativado</span>
-                </div>
-                <p className="text-xs pl-7 text-slate-400">
-                  Acesse o <strong className="text-indigo-450">Console do Firebase &gt; Build &gt; Storage</strong> e clique em <strong className="text-indigo-450">Começar / Primeiros passos</strong> caso o Storage ainda não tenha sido iniciado no projeto.
-                </p>
-              </div>
-
-              {/* Passo 1 */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-bold shrink-0">2</span>
-                  <span className="font-bold text-xs text-slate-700 dark:text-slate-200">Aplique o arquivo <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-indigo-500 font-mono">cors.json</code></span>
-                </div>
-                <p className="text-xs pl-7 text-slate-400">
-                  O arquivo <code className="font-mono bg-slate-50 dark:bg-slate-850 px-1.5 py-0.5 rounded">cors.json</code> já está pronto na raiz do seu projeto. Basta executar no seu terminal ou no <strong>Google Cloud Shell</strong>:
-                </p>
-                <div className="pl-7">
-                  <pre className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl text-[11px] font-mono border border-slate-100 dark:border-white/5 text-indigo-500 dark:text-indigo-400 overflow-x-auto select-all">
-{`gcloud storage buckets update gs://${corsErrorDetails?.bucket || 'meu-painel-e6a63.firebasestorage.app'} --cors-file=cors.json`}
-                  </pre>
-                  <p className="text-[10px] text-slate-400 mt-1.5">
-                    Ou via utilitário <code className="font-mono bg-slate-50 dark:bg-slate-850 px-1 py-0.5 rounded">gsutil</code>:
-                  </p>
-                  <pre className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl text-[11px] font-mono border border-slate-100 dark:border-white/5 text-indigo-500 dark:text-indigo-400 overflow-x-auto mt-1 select-all">
-{`gsutil cors set cors.json gs://${corsErrorDetails?.bucket || 'meu-painel-e6a63.firebasestorage.app'}`}
-                  </pre>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
-              <button
-                onClick={() => setCorsErrorOpen(false)}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-97 text-white font-bold text-xs rounded-2xl transition-all cursor-pointer shadow-md shadow-indigo-600/15"
-              >
-                Entendi, Tudo Certo!
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {renderTutorialOverlay()}
     </div>

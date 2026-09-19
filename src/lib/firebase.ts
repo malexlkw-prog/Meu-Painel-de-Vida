@@ -1,12 +1,10 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDG3gN5yGhBKSfoWf_99UlLhmdgYDhKCS0",
   authDomain: "meu-painel-e6a63.firebaseapp.com",
   projectId: "meu-painel-e6a63",
-  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || "meu-painel-e6a63.firebasestorage.app",
   messagingSenderId: "181326849052",
   appId: "1:181326849052:web:80ea9ed4a8e16672a96bd9"
 };
@@ -16,7 +14,4 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore (default database instance)
 export const db = getFirestore(app);
-
-// Initialize Firebase Storage
-export const storage = getStorage(app);
 
