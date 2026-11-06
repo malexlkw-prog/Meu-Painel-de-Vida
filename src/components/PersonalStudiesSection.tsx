@@ -72,86 +72,13 @@ export interface LanguageItem {
   modules: LanguageModule[];
 }
 
+import { PORTUGUES_STUDY_PLAN } from '../data/portuguesCurriculum';
+import { BIOLOGIA_STUDY_PLAN } from '../data/biologiaCurriculum';
+import { QUIMICA_STUDY_PLAN } from '../data/quimicaCurriculum';
+import { ALL_ENEM_STUDY_PLANS } from '../data/enemStudyPlans';
+
 // INITIAL SEED DATA FOR ESTUDOS
-const INITIAL_STUDY_PLANS: StudyPlan[] = [
-  {
-    id: 'portugues',
-    name: 'Língua Portuguesa & Gramática',
-    category: 'Estudos Pessoais',
-    modules: [
-      {
-        id: 'm1',
-        title: 'Módulo 1 — Fundamentos da Língua',
-        description: 'Conceitos básicos de comunicação e linguagem',
-        topics: [
-          { id: 't1', title: 'Língua e Linguagem', status: 'concluido' },
-          { id: 't2', title: 'Linguagem Verbal e Não Verbal', status: 'concluido' },
-          { id: 't3', title: 'Comunicação e Interlocução', status: 'concluido' },
-          { id: 't4', title: 'Funções da Linguagem', status: 'concluido' }
-        ]
-      },
-      {
-        id: 'm2',
-        title: 'Módulo 2 — Fonética e Fonologia',
-        description: 'Sons da fala e acentuação',
-        topics: [
-          { id: 't5', title: 'Fonemas e Letras', status: 'concluido' },
-          { id: 't6', title: 'Encontros Vocálicos (Ditongo, Hiato)', status: 'em_andamento' },
-          { id: 't7', title: 'Encontros Consonantais e Dígrafos', status: 'nao_iniciado' },
-          { id: 't8', title: 'Regras de Acentuação Gráfica', status: 'nao_iniciado' }
-        ]
-      },
-      {
-        id: 'm3',
-        title: 'Módulo 3 — Ortografia',
-        description: 'Uso correto das letras e reforma ortográfica',
-        topics: [
-          { id: 't9', title: 'Uso de S ou Z', status: 'concluido' },
-          { id: 't10', title: 'Uso de X ou CH', status: 'concluido' },
-          { id: 't11', title: 'Uso do Hífen (Novo Acordo)', status: 'em_andamento' },
-          { id: 't12', title: 'Reforma Ortográfica Atualizada', status: 'nao_iniciado' }
-        ]
-      },
-      {
-        id: 'm4',
-        title: 'Módulo 4 — Morfologia',
-        description: 'Classes de palavras e verbos',
-        topics: [
-          { id: 't13', title: 'Substantivos e Adjetivos', status: 'em_andamento' },
-          { id: 't14', title: 'Pronomes Pessoais e Possessivos', status: 'nao_iniciado' },
-          { id: 't15', title: 'Tempos e Modos Verbais', status: 'nao_iniciado' }
-        ]
-      }
-    ]
-  },
-  {
-    id: 'matematica_enem',
-    name: 'Matemática e Suas Tecnologias',
-    category: 'Preparação ENEM',
-    modules: [
-      {
-        id: 'mm1',
-        title: 'Módulo 1 — Matemática Básica & Porcentagem',
-        description: 'Operações fundamentais e regra de três',
-        topics: [
-          { id: 'mt1', title: 'Razão e Proporção', status: 'concluido' },
-          { id: 'mt2', title: 'Regra de Três Simples e Composta', status: 'concluido' },
-          { id: 'mt3', title: 'Porcentagem e Juros Simples', status: 'concluido' }
-        ]
-      },
-      {
-        id: 'mm2',
-        title: 'Módulo 2 — Funções e Álgebra',
-        description: 'Estudo das funções afins e quadráticas',
-        topics: [
-          { id: 'mt4', title: 'Função Afim (1º Grau)', status: 'concluido' },
-          { id: 'mt5', title: 'Função Quadrática (2º Grau)', status: 'em_andamento' },
-          { id: 'mt6', title: 'Função Exponencial', status: 'nao_iniciado' }
-        ]
-      }
-    ]
-  }
-];
+const INITIAL_STUDY_PLANS: StudyPlan[] = ALL_ENEM_STUDY_PLANS;
 
 // INITIAL SEED DATA FOR CURSOS
 const INITIAL_COURSES: Course[] = [
@@ -251,17 +178,80 @@ const INITIAL_LANGUAGES: LanguageItem[] = [
 export interface PersonalStudiesSectionProps {
   onBackToDashboard?: () => void;
   initialSubTab?: 'menu' | 'estudos' | 'cursos' | 'idiomas';
+  initialSubjectName?: string;
 }
 
-export default function PersonalStudiesSection({ onBackToDashboard, initialSubTab = 'menu' }: PersonalStudiesSectionProps) {
+export default function PersonalStudiesSection({ 
+  onBackToDashboard, 
+  initialSubTab = 'menu',
+  initialSubjectName
+}: PersonalStudiesSectionProps) {
   const [activeSubTab, setActiveSubTab] = useState<'menu' | 'estudos' | 'cursos' | 'idiomas'>(initialSubTab);
 
   // 1. ESTUDOS STATE
   const [plans, setPlans] = useState<StudyPlan[]>(() => {
-    const saved = localStorage.getItem('lifehub_studies_plans_v2');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+    const savedV6 = localStorage.getItem('lifehub_studies_plans_v6');
+    if (savedV6) {
+      try {
+        const parsed: StudyPlan[] = JSON.parse(savedV6);
+        const quiPlan = parsed.find(p => p.id === 'quimica_enem' || p.name.toLowerCase().trim() === 'química' || p.name.toLowerCase().trim() === 'quimica');
+        if (quiPlan && quiPlan.modules.length >= 24) {
+          return parsed;
+        }
+      } catch (e) {}
     }
+
+    const previousRaw = localStorage.getItem('lifehub_studies_plans_v6') || 
+                        localStorage.getItem('lifehub_studies_plans_v5') || 
+                        localStorage.getItem('lifehub_studies_plans_v4') || 
+                        localStorage.getItem('lifehub_studies_plans_v3') || 
+                        localStorage.getItem('lifehub_studies_plans_v2');
+
+    if (previousRaw) {
+      try {
+        const parsed: StudyPlan[] = JSON.parse(previousRaw);
+        let hasBio = false;
+        let hasQui = false;
+        const merged = parsed.map(plan => {
+          if (plan.id === 'quimica_enem' || plan.name.toLowerCase().trim() === 'química' || plan.name.toLowerCase().trim() === 'quimica') {
+            hasQui = true;
+            if (plan.modules.length < 24) {
+              return QUIMICA_STUDY_PLAN;
+            }
+          }
+          if (plan.id === 'biologia_enem' || plan.name.toLowerCase().trim() === 'biologia') {
+            hasBio = true;
+            if (plan.modules.length < 23) {
+              return BIOLOGIA_STUDY_PLAN;
+            }
+          }
+          if (plan.id === 'portugues' || plan.name.toLowerCase().includes('portugu')) {
+            if (plan.modules.length < 28) {
+              return PORTUGUES_STUDY_PLAN;
+            }
+          }
+          return plan;
+        });
+
+        if (!hasBio) {
+          merged.push(BIOLOGIA_STUDY_PLAN);
+        }
+        if (!hasQui) {
+          merged.push(QUIMICA_STUDY_PLAN);
+        }
+
+        ALL_ENEM_STUDY_PLANS.forEach(enemPlan => {
+          const exists = merged.some(p => p.id === enemPlan.id || p.name.toLowerCase() === enemPlan.name.toLowerCase());
+          if (!exists) {
+            merged.push(enemPlan);
+          }
+        });
+
+        localStorage.setItem('lifehub_studies_plans_v6', JSON.stringify(merged));
+        return merged;
+      } catch (e) {}
+    }
+
     return INITIAL_STUDY_PLANS;
   });
 
@@ -269,6 +259,42 @@ export default function PersonalStudiesSection({ onBackToDashboard, initialSubTa
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   // Selected Module Inside Plan
   const [selectedModuleIdInPlan, setSelectedModuleIdInPlan] = useState<string | null>(null);
+
+  // Deep-linking / navigation to subject from routine or dashboard
+  useEffect(() => {
+    const handleSubjectNav = (subj?: string) => {
+      if (!subj) return;
+      const lower = subj.toLowerCase().trim();
+      if (lower.includes('inglês') || lower.includes('ingles')) {
+        setActiveSubTab('idiomas');
+      } else if (lower.includes('curso')) {
+        setActiveSubTab('cursos');
+      } else {
+        setActiveSubTab('estudos');
+        const match = plans.find(p => 
+          p.name.toLowerCase() === lower ||
+          p.name.toLowerCase().includes(lower) || 
+          lower.includes(p.name.toLowerCase()) ||
+          p.id.toLowerCase().includes(lower)
+        );
+        if (match) {
+          setSelectedPlanId(match.id);
+        }
+      }
+    };
+
+    if (initialSubjectName) {
+      handleSubjectNav(initialSubjectName);
+    }
+
+    const onCustomNav = (e: any) => {
+      if (e.detail?.subject) {
+        handleSubjectNav(e.detail.subject);
+      }
+    };
+    window.addEventListener('lifehub_navigate_studies', onCustomNav);
+    return () => window.removeEventListener('lifehub_navigate_studies', onCustomNav);
+  }, [initialSubjectName, plans]);
 
   // 2. CURSOS STATE
   const [courses, setCourses] = useState<Course[]>(() => {
@@ -492,6 +518,10 @@ export default function PersonalStudiesSection({ onBackToDashboard, initialSubTa
 
   // Save changes to localStorage for F5 persistence
   useEffect(() => {
+    localStorage.setItem('lifehub_studies_plans_v6', JSON.stringify(plans));
+    localStorage.setItem('lifehub_studies_plans_v5', JSON.stringify(plans));
+    localStorage.setItem('lifehub_studies_plans_v4', JSON.stringify(plans));
+    localStorage.setItem('lifehub_studies_plans_v3', JSON.stringify(plans));
     localStorage.setItem('lifehub_studies_plans_v2', JSON.stringify(plans));
   }, [plans]);
 
@@ -1413,16 +1443,32 @@ export default function PersonalStudiesSection({ onBackToDashboard, initialSubTa
 
             {/* LIST OF MODULES INSIDE PLAN */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-extrabold text-xs text-slate-900 dark:text-white uppercase tracking-wider">Módulos do Plano</h4>
-                {!isAddingPlanModule && (
-                  <button
-                    onClick={() => setIsAddingPlanModule(true)}
-                    className="text-xs font-bold text-violet-600 hover:underline flex items-center gap-1"
-                  >
-                    <Plus size={14} /> Add Módulo
-                  </button>
-                )}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h4 className="font-extrabold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+                  Módulos do Plano ({selectedPlanModal.modules.length})
+                </h4>
+                <div className="flex items-center gap-2">
+                  {(selectedPlanModal.id === 'portugues' || selectedPlanModal.name.toLowerCase().includes('portugu')) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlans(prev => prev.map(p => (p.id === 'portugues' || p.name.toLowerCase().includes('portugu')) ? PORTUGUES_STUDY_PLAN : p));
+                      }}
+                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg border border-indigo-200/50 dark:border-indigo-800/50"
+                      title="Restaurar a grade completa oficial de 28 módulos"
+                    >
+                      <Sparkles size={13} /> Restaurar 28 Módulos
+                    </button>
+                  )}
+                  {!isAddingPlanModule && (
+                    <button
+                      onClick={() => setIsAddingPlanModule(true)}
+                      className="text-xs font-bold text-violet-600 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus size={14} /> Add Módulo
+                    </button>
+                  )}
+                </div>
               </div>
 
               {isAddingPlanModule && (

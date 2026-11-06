@@ -464,6 +464,84 @@ export interface ArchivedMonthData {
   summary: ArchivedMonthSummary;
 }
 
+// ==========================================
+// ROTINA DIÁRIA, HISTÓRICO & OFENSIVA
+// ==========================================
+
+export type RoutineActivityStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+
+export interface RoutineActivity {
+  id: string;
+  name: string;
+  startTime: string; // e.g. "06:00"
+  endTime?: string;   // e.g. "06:45"
+  durationMinutes?: number;
+  daysOfWeek: number[]; // 0=Domingo, 1=Segunda, ..., 6=Sábado
+  order: number;
+  category?: 'personal' | 'spiritual' | 'study' | 'work' | 'health' | 'leisure';
+  icon?: string;
+  color?: string;
+  active: boolean;
+  studyBlock?: 1 | 2; // 1 = 15:15–16:15, 2 = 21:30–22:30
+}
+
+export interface RoutineDayActivityExecution {
+  activityId: string;
+  name: string;
+  startTime: string;
+  endTime?: string;
+  durationMinutes?: number;
+  status: RoutineActivityStatus;
+  completedAt?: string; // e.g. "06:42"
+  failedAt?: string;    // e.g. "07:10"
+  reasonCategory?: 'cansado' | 'imprevisto' | 'ocupado' | 'nao_acordou' | 'feito' | 'outro';
+  justification?: string;
+  studySubject?: string; // e.g. "Matemática", "Português", etc.
+  studyMode?: string;    // e.g. "Revisão", "Exercícios", "Redação", "Simulados", "Conteúdos atrasados"
+  studyBlock?: 1 | 2;    // 1 = 15:15–16:15, 2 = 21:30–22:30
+}
+
+export interface RoutineDayLog {
+  id: string; // "YYYY-MM-DD"
+  date: string; // "YYYY-MM-DD"
+  activities: RoutineDayActivityExecution[];
+  totalScheduled: number;
+  totalCompleted: number;
+  totalFailed: number;
+  completionPercent: number; // 0 - 100
+  isDayComplete: boolean;
+  notes?: string;
+  updatedAt: string;
+}
+
+export interface RoutineSettings {
+  notificationsEnabled: boolean;
+  leadTimeMinutes: number; // 0, 5, 10, 15
+  dailyGoalPercent: number; // e.g. 100
+  activeRoutineDays: number[]; // e.g. [0, 1, 2, 3, 4, 5, 6]
+  soundEnabled: boolean;
+}
+
+export interface RoutineStreak {
+  currentStreak: number;
+  bestStreak: number;
+  lastCompletedDate?: string;
+}
+
+export interface EnemScheduleDayConfig {
+  dayName: string;
+  block1Subject: string; // 15:15–16:15
+  block2Subject: string; // 21:30–22:30
+}
+
+export interface RoutineState {
+  activities: RoutineActivity[];
+  history: RoutineDayLog[];
+  settings: RoutineSettings;
+  streak: RoutineStreak;
+  enemSchedule?: Record<number, EnemScheduleDayConfig>;
+}
+
 export interface PainelData {
   shoppingList: ShoppingItem[];
   tasks: Task[];
@@ -484,6 +562,7 @@ export interface PainelData {
   queroComprar?: QueroComprarState; // New Wishlist full app module
   archivedMonths?: ArchivedMonthData[]; // Archived finished months
   redeAdolescentes?: RedeAdolescentesData; // Rede de Adolescentes 2027 project module
+  routine?: RoutineState; // Aba Rotina completa
 }
 
 // Wishlist Full Module interfaces

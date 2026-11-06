@@ -80,7 +80,15 @@ import WorldCupSection from './components/WorldCupSection';
 import CustomizationDrawer from './components/CustomizationDrawer';
 import ProjectsSection from './components/ProjectsSection';
 import { RedeAdolescentesSection } from './components/RedeAdolescentesSection';
+import RoutineSection from './components/RoutineSection';
+import { INITIAL_ROUTINE_STATE } from './data/initialRoutineData';
 import { getAllPhotos, getAlbums } from './utils/galleryDB';
+import { 
+  checkShouldAutoFinalize, 
+  buildArchivedMonthData, 
+  getNextScheduledFinalizeDate, 
+  PORTUGUESE_MONTHS 
+} from './utils/autoMonthFinalizer';
 
 // Firebase imports
 import { db } from './lib/firebase';
@@ -253,6 +261,7 @@ const SUBCOLLECTION_MAP: { [key: string]: string } = {
   'calendarMarkedDays': 'calendarMarkedDays',
   'notes': 'notes',
   'creativityProjects': 'creativityProjects',
+  'archivedMonths': 'archivedMonths',
   
   // Gym sub-keys
   'gym.workouts': 'gymWorkouts',
@@ -286,7 +295,11 @@ const SUBCOLLECTION_MAP: { [key: string]: string } = {
   
   // Bible sub-keys
   'bible.reflections': 'bibleReflections',
-  'bible.history': 'bibleHistory'
+  'bible.history': 'bibleHistory',
+
+  // Routine sub-keys
+  'routine.activities': 'routineActivities',
+  'routine.history': 'routineHistory'
 };
 
 const isBase64Image = (str: any): boolean => {
@@ -393,8 +406,8 @@ const setValueByPath = (obj: any, path: string, value: any): any => {
 };
 
 const getPathsNeededForCurrentView = (tab: string, orgSub: string, finSub: string, studiesSub: string): string[] => {
-  if (tab === 'dashboard') {
-    return ['tasks', 'finance', 'reminders', 'queroComprar.items', 'queroComprar.people'];
+  if (tab === 'dashboard' || tab === 'routine') {
+    return ['routine.activities', 'routine.history', 'tasks', 'finance', 'reminders', 'queroComprar.items', 'queroComprar.people'];
   }
   if (tab === 'organizer') {
     if (orgSub === 'tasks') return ['tasks'];
@@ -477,6 +490,9 @@ export default function App() {
     if (!parsed.queroComprar) {
       parsed.queroComprar = { items: [], people: [] };
     }
+    if (!parsed.routine) {
+      parsed.routine = INITIAL_ROUTINE_STATE;
+    }
 
     // Run studies data migration / fallback initialization
     migrateStudiesData(parsed);
@@ -548,6 +564,7 @@ export default function App() {
   };
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [studiesInitialSubject, setStudiesInitialSubject] = useState<string | undefined>(undefined);
   const [activeOrgSubTab, setActiveOrgSubTab] = useState<'home' | 'tasks' | 'schedule' | 'calendar' | 'reminders' | 'notes' | 'creativity'>('home');
   const [activeFinSubTab, setActiveFinSubTab] = useState<'home' | 'finance' | 'shoppingList' | 'stationery' | 'sales'>('home');
   const [activeStudiesSubTab, setActiveStudiesSubTab] = useState<'home' | 'school' | 'gym'>('home');
@@ -994,6 +1011,14 @@ export default function App() {
           if (appConfigs.church) updatedData.church = { ...updatedData.church, ...appConfigs.church };
           if (appConfigs.youtube) updatedData.youtube = { ...updatedData.youtube, ...appConfigs.youtube };
           if (appConfigs.queroComprar) updatedData.queroComprar = { ...updatedData.queroComprar, ...appConfigs.queroComprar };
+          if (appConfigs.routine) {
+            updatedData.routine = {
+              activities: updatedData.routine?.activities || INITIAL_ROUTINE_STATE.activities,
+              history: updatedData.routine?.history || [],
+              settings: appConfigs.routine.settings || updatedData.routine?.settings || INITIAL_ROUTINE_STATE.settings,
+              streak: appConfigs.routine.streak || updatedData.routine?.streak || INITIAL_ROUTINE_STATE.streak
+            };
+          }
         }
 
         const paths = Object.keys(SUBCOLLECTION_MAP);
@@ -1134,6 +1159,10 @@ export default function App() {
             customSubCategories: data.queroComprar?.customSubCategories || {},
             deletedCategories: data.queroComprar?.deletedCategories || [],
             deletedSubCategories: data.queroComprar?.deletedSubCategories || {}
+          },
+          routine: {
+            settings: data.routine?.settings || INITIAL_ROUTINE_STATE.settings,
+            streak: data.routine?.streak || INITIAL_ROUTINE_STATE.streak
           }
         };
 
@@ -1206,10 +1235,10 @@ export default function App() {
     window.addEventListener('lifehub_appearance_update', handleAppearanceUpdate);
     window.addEventListener('paste', handlePaste);
 
-    // Auto-migrate tab storage to guarantee Escola, Estudos and Gym tabs are purged
-    if (!localStorage.getItem('lifehub_tabs_version_v10_purged_all')) {
+    // Auto-migrate tab storage to guarantee Escola, Estudos and Gym tabs are purged and Rotina is visible
+    if (!localStorage.getItem('lifehub_tabs_version_v11_routine')) {
       localStorage.removeItem('lifehub_tabs_config');
-      localStorage.setItem('lifehub_tabs_version_v10_purged_all', 'true');
+      localStorage.setItem('lifehub_tabs_version_v11_routine', 'true');
       window.dispatchEvent(new CustomEvent('lifehub_sidebar_reorder'));
     }
 
@@ -1221,10 +1250,71 @@ export default function App() {
     };
   }, []);
 
+  // -------------------------------------------------------------
+  // ATUALIZAÇÃO E FECHAMENTO AUTOMÁTICO DE MÊS
+  // Regra do usuário: No 1º dia de cada mês às 06:00, o mês anterior é
+  // finalizado automaticamente, arquivando finanças e tarefas e entrando no novo mês.
+  // -------------------------------------------------------------
+  const [autoFinalizedBanner, setAutoFinalizedBanner] = useState<{
+    monthName: string;
+    year: number;
+    newMonthName: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!hasLoadedFromServer) return;
+
+    const performAutoMonthCheck = () => {
+      const now = new Date();
+      const status = checkShouldAutoFinalize(now, data.archivedMonths || []);
+
+      if (status.shouldFinalize) {
+        console.log(`[AutoMonthFinalizer] Executando fechamento automático de ${status.targetMonthName}/${status.targetYear}...`);
+
+        const archived = buildArchivedMonthData(
+          status.targetMonthName,
+          status.targetYear,
+          status.targetMonthIndex,
+          data.finance || [],
+          data.tasks || [],
+          true
+        );
+
+        // Armazena no localStorage para evitar duplicidade de execução
+        const localKey = `lifehub_auto_finalized_${status.targetYear}_${status.targetMonthIndex}`;
+        localStorage.setItem(localKey, 'true');
+        localStorage.setItem('lifehub_active_cycle_month', `${now.getFullYear()}-${now.getMonth()}`);
+
+        // Atualiza o estado: arquiva o mês, zera finanças e tarefas para o novo mês
+        setData(prev => ({
+          ...prev,
+          finance: [],
+          tasks: [],
+          archivedMonths: [archived, ...(prev.archivedMonths || [])]
+        }));
+
+        // Exibe banner de notificação para o usuário
+        setAutoFinalizedBanner({
+          monthName: status.targetMonthName,
+          year: status.targetYear,
+          newMonthName: status.activeMonthName
+        });
+      }
+    };
+
+    // Executa ao inicializar
+    performAutoMonthCheck();
+
+    // Monitora a cada 30 segundos (para transição contínua caso o app fique aberto durante as 06:00)
+    const interval = setInterval(performAutoMonthCheck, 30000);
+    return () => clearInterval(interval);
+  }, [hasLoadedFromServer, data.archivedMonths, data.finance, data.tasks]);
+
   const getCustomizedSidebarItems = () => {
     const saved = localStorage.getItem('lifehub_tabs_config');
     const defaultTabs = [
       { id: 'dashboard', label: 'Dashboard', icon: 'Home', color: 'text-indigo-500', hidden: false, pinned: false, order: 0 },
+      { id: 'routine', label: 'Rotina', icon: 'Clock', color: 'text-indigo-500 font-bold', hidden: false, pinned: false, order: 0.5 },
       { id: 'sete', label: 'Sete IA', icon: 'Sparkles', color: 'text-amber-500 font-extrabold animate-pulse', hidden: false, pinned: false, order: 1 },
       { id: 'school', label: 'Escola', icon: 'BookOpen', color: 'text-sky-500 font-bold', hidden: false, pinned: false, order: 2 },
       { id: 'studies', label: 'Estudos', icon: 'GraduationCap', color: 'text-violet-500 font-bold', hidden: false, pinned: false, order: 3 },
@@ -1319,16 +1409,20 @@ export default function App() {
         <button
           key={item.id}
           onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
-          className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-bold tracking-wide text-left transition-all duration-300 cursor-pointer ${
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-tight text-left transition-all duration-200 cursor-pointer ${
             isSelected
-              ? 'bg-gradient-to-r from-indigo-500 to-indigo-650 text-white dark:from-white dark:to-white/90 dark:text-slate-950 shadow-md scale-[1.03] border-t border-white/30 dark:border-white/40'
-              : 'text-slate-600 dark:text-slate-350 hover:bg-white/35 dark:hover:bg-slate-900/40 hover:scale-[1.01] hover:text-slate-950 dark:hover:text-white border border-transparent hover:border-white/20 dark:hover:border-white/5'
+              ? 'bg-indigo-600 text-white shadow-[0_2px_10px_rgba(79,70,229,0.3)] dark:bg-white/15 dark:text-white dark:border dark:border-white/10 dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] backdrop-blur-md font-bold'
+              : 'text-slate-650 dark:text-slate-350 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <div className={`p-1.5 rounded-xl ${isSelected ? 'bg-white/20' : 'bg-slate-100/50 dark:bg-slate-800/50'}`}>
-            <Icon size={14} className={isSelected ? 'text-white dark:text-indigo-600' : item.color} />
+          <div className={`p-1.5 rounded-lg transition-colors ${
+            isSelected 
+              ? 'bg-white/20 text-white' 
+              : 'bg-black/[0.03] dark:bg-white/[0.05]'
+          }`}>
+            <Icon size={14} className={isSelected ? 'text-white' : item.color} />
           </div>
-          <span>{item.label}</span>
+          <span className="truncate">{item.label}</span>
         </button>
       );
     });
@@ -2535,10 +2629,35 @@ export default function App() {
     );
   }
 
-  return (
-    <div className="min-h-screen font-sans antialiased text-slate-850 dark:text-slate-100 transition-colors duration-300 bg-slate-50 dark:bg-[#070b19] flex flex-col relative overflow-hidden">
-      
+  /* 100% FULL-SCREEN APPLICATION INTERCEPT FOR REDE DE ADOLESCENTES (SITE DEDICADO) */
+  if (activeTab === 'rede_adolescentes') {
+    return (
+      <div className="min-h-screen w-screen bg-slate-950 text-slate-100 flex flex-col overflow-y-auto">
+        <RedeAdolescentesSection
+          data={data.redeAdolescentes || INITIAL_DATA.redeAdolescentes}
+          onUpdateData={(newRede) => {
+            setData({
+              ...data,
+              redeAdolescentes: newRede
+            });
+          }}
+          onClose={() => setActiveTab('dashboard')}
+          isStandaloneSite={true}
+        />
+        {renderTutorialOverlay()}
+      </div>
+    );
+  }
 
+  return (
+    <div className="min-h-screen font-sans antialiased text-slate-850 dark:text-slate-100 transition-colors duration-300 bg-[#f5f5f7] dark:bg-[#060913] flex flex-col relative overflow-hidden selection:bg-indigo-500/20">
+      
+      {/* Apple Liquid Glass Ambient Light Aura Blobs */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+        <div className="absolute -top-[12%] left-[12%] w-[60vw] h-[60vw] max-w-[750px] max-h-[750px] rounded-full bg-gradient-to-br from-indigo-500/15 via-sky-400/10 to-transparent blur-3xl dark:from-indigo-600/15 dark:via-blue-500/10 dark:to-transparent" />
+        <div className="absolute top-[28%] -right-[12%] w-[50vw] h-[50vw] max-w-[650px] max-h-[650px] rounded-full bg-gradient-to-bl from-purple-500/12 via-pink-400/8 to-transparent blur-3xl dark:from-violet-600/12 dark:via-purple-500/10 dark:to-transparent" />
+        <div className="absolute -bottom-[15%] left-[20%] w-[55vw] h-[55vw] max-w-[700px] max-h-[700px] rounded-full bg-gradient-to-tr from-cyan-400/10 via-teal-400/8 to-transparent blur-3xl dark:from-cyan-600/10 dark:via-teal-500/8 dark:to-transparent" />
+      </div>
 
       {/* Dynamic Module Loading Indicator */}
       {loadingModuleData && (
@@ -2550,15 +2669,15 @@ export default function App() {
 
       <div className="relative z-10 flex flex-col min-h-screen">
       
-      {/* Top Universal Navbar Header (Dark mode toggler, brand and global search) */}
-      <header className="sticky top-0 z-30 bg-white/40 dark:bg-[#080f26]/50 backdrop-blur-2xl border-b border-white/20 dark:border-white/10 shadow-sm px-4 py-3 md:px-6">
+      {/* Top Universal Navbar Header (Apple Glass Bar) */}
+      <header className="sticky top-0 z-30 apple-glass-header px-4 py-3 md:px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           
           {/* Logo Brand Brand */}
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1 px-1.5 border dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg md:hidden text-slate-600 dark:text-slate-300"
+              className="p-2 apple-glass-button rounded-xl md:hidden text-slate-600 dark:text-slate-300 cursor-pointer"
             >
               <Menu size={18} />
             </button>
@@ -2617,30 +2736,30 @@ export default function App() {
           {/* Global Search Bar (Busca global no site) */}
           <div ref={searchContainerRef} className="relative flex-1 max-w-sm md:max-w-md hidden sm:block">
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
+              <Search className="absolute left-3.5 top-2.5 text-slate-400 dark:text-slate-500" size={15} />
               <input
                 type="text"
                 value={searchQuery}
                 onFocus={() => setShowSearchResults(true)}
                 onChange={(e) => { setSearchQuery(e.target.value); setShowSearchResults(true); }}
                 placeholder="Fazer busca global em todo painel de vida..."
-                className="w-full bg-slate-100/85 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-850 focus:border-indigo-500 rounded-xl p-2 pl-9 text-xs focus:outline-none dark:text-white"
+                className="w-full apple-glass-pill px-4 py-2 pl-10 text-xs focus:outline-none dark:text-white transition-all shadow-2xs focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
 
             {/* Results Floating overlay panel list */}
             {showSearchResults && searchQuery.trim() && (
-              <div className="absolute top-[100%] mt-1.5 left-0 right-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg p-2 z-50 overflow-hidden max-h-[300px]">
-                <h4 className="text-[10px] text-slate-400 uppercase font-bold px-2 py-1 select-none">Resultados Globais Encontrados:</h4>
+              <div className="absolute top-[100%] mt-2 left-0 right-0 apple-glass-card p-2 z-50 overflow-hidden max-h-[300px]">
+                <h4 className="text-[10px] text-slate-400 uppercase font-bold px-2 py-1 select-none font-mono">Resultados Globais Encontrados:</h4>
                 <div className="space-y-0.5">
                   {matchingSuggestions.map((res) => (
                     <div
                       key={res.id}
                       onClick={() => handleSearchResultClick(res.tab)}
-                      className="p-2 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer text-xs font-medium dark:text-white flex items-center justify-between"
+                      className="p-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.08] rounded-xl cursor-pointer text-xs font-medium dark:text-white flex items-center justify-between transition-colors"
                     >
                       <span className="truncate pr-4">{res.label}</span>
-                      <span className="text-[9px] uppercase font-bold bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 px-1.5 py-0.5 rounded">
+                      <span className="text-[9px] uppercase font-bold bg-indigo-500/10 dark:bg-white/10 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-mono">
                         {res.module}
                       </span>
                     </div>
@@ -2658,7 +2777,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab('projects')}
-              className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
               title="Abrir Central de Projetos"
             >
               <Folder size={14} />
@@ -2667,15 +2786,14 @@ export default function App() {
 
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 border border-slate-200/50 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer flex items-center justify-center"
+              className="p-2 apple-glass-button rounded-xl text-slate-700 dark:text-slate-300 transition-colors cursor-pointer flex items-center justify-center"
               title={darkMode ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'}
             >
               {darkMode ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} />}
             </button>
 
-
             {/* Quick Greeting */}
-            <span className="text-xs font-medium text-slate-400 hidden lg:inline">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 hidden lg:inline">
               Oi, <span className="text-slate-900 dark:text-white font-bold">{userName}</span>
             </span>
           </div>
@@ -2683,11 +2801,59 @@ export default function App() {
         </div>
       </header>
 
+      {/* Auto Month Finalization Alert Banner */}
+      {autoFinalizedBanner && (
+        <div className="fixed top-20 right-4 sm:right-6 z-50 max-w-md bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-4 rounded-3xl shadow-2xl border border-indigo-500/50 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+              <Moon size={20} />
+            </div>
+            <div className="space-y-1 text-left flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 font-mono flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Fechamento Automático às 06:00
+                </span>
+                <button 
+                  onClick={() => setAutoFinalizedBanner(null)}
+                  className="text-slate-400 hover:text-white text-xs cursor-pointer ml-2"
+                >
+                  ✕
+                </button>
+              </div>
+              <h4 className="text-sm font-black text-white">
+                Mês de {autoFinalizedBanner.monthName} Finalizado!
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                O ciclo mensal de <strong>{autoFinalizedBanner.monthName} {autoFinalizedBanner.year}</strong> foi encerrado e arquivado permanentemente no histórico. Suas Finanças e Tarefas foram renovadas para <strong>{autoFinalizedBanner.newMonthName}</strong>.
+              </p>
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setActiveTab('system');
+                    setAutoFinalizedBanner(null);
+                  }}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] font-bold cursor-pointer transition-colors shadow-xs"
+                >
+                  Ver Histórico de Meses
+                </button>
+                <button
+                  onClick={() => setAutoFinalizedBanner(null)}
+                  className="px-2.5 py-1.5 text-slate-400 hover:text-white text-[11px] font-semibold cursor-pointer"
+                >
+                  Dispensar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Structural responsive double-column layout */}
       <div className="flex-1 max-w-7xl mx-auto w-full flex relative">
         
         {/* Left Sidebar Menu for Desktop (Hidden in dedicated full-page views like Estudos, Escola and Projetos) */}
-        <aside className={`w-64 border-r border-slate-200/60 dark:border-slate-800 p-5 shrink-0 ${ (activeTab === 'studies' || activeTab === 'school' || activeTab === 'projects') ? 'hidden' : 'hidden md:block' } space-y-6`}>
+        <aside className={`w-64 apple-glass-sidebar p-5 shrink-0 ${ (activeTab === 'studies' || activeTab === 'school' || activeTab === 'projects') ? 'hidden' : 'hidden md:block' } space-y-6`}>
           
           <div className="space-y-4">
             {(() => {
@@ -2696,14 +2862,14 @@ export default function App() {
                 <>
                   {pinned.length > 0 && (
                     <div className="space-y-1">
-                      <span className="text-[12px] font-black text-amber-500 px-2 block">★</span>
+                      <span className="text-[11px] font-black text-amber-500 px-2 block">★ Favoritos</span>
                       <nav className="space-y-0.5">
                         {renderSidebarList(pinned)}
                       </nav>
                     </div>
                   )}
                   <div className="space-y-1">
-                    <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 px-2 block">Navegação Geral</span>
+                    <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-500 px-2 block font-mono">Navegação Geral</span>
                     <nav className="space-y-0.5">
                       {renderSidebarList(unpinned)}
                     </nav>
@@ -2713,23 +2879,23 @@ export default function App() {
             })()}
           </div>
 
-          <div className="pt-6 border-t border-slate-200/60 dark:border-slate-850 p-3.5 text-center bg-slate-50 dark:bg-slate-900/45 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-            <span className="text-[10px] uppercase font-black tracking-wider text-amber-500 block mb-1.5">📖 Versículo do Dia:</span>
+          <div className="pt-4 p-4 text-center apple-glass-subtle space-y-1.5">
+            <span className="text-[10px] uppercase font-black tracking-wider text-amber-500 block mb-1">📖 Versículo do Dia:</span>
             <p className="text-[11px] leading-relaxed font-semibold text-slate-800 dark:text-slate-200">
               "{getDailyVerse().text}"
             </p>
-            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 block mt-1">
+            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 block mt-1 font-mono">
               — {getDailyVerse().ref}
             </span>
           </div>
 
-          <div className="pt-4 border-t border-slate-200/60 dark:border-slate-800 space-y-1">
+          <div className="pt-3 border-t border-slate-200/50 dark:border-white/10 space-y-1">
             <button
               onClick={() => setActiveTab('system')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide text-left cursor-pointer transition-colors ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold tracking-tight text-left cursor-pointer transition-all ${
                 activeTab === 'system'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-600 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-950/20 active:scale-95'
+                  ? 'bg-indigo-600 text-white shadow-[0_2px_10px_rgba(79,70,229,0.3)] dark:bg-white/15 dark:text-white dark:border dark:border-white/10 dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] backdrop-blur-md font-bold'
+                  : 'text-slate-650 dark:text-slate-350 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Settings size={15} className={`${activeTab === 'system' ? 'text-white' : 'text-slate-500'} shrink-0`} />
@@ -2748,7 +2914,7 @@ export default function App() {
                 animate={{ opacity: 0.5 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setMobileMenuOpen(false)}
-                className="fixed inset-0 bg-black z-40 md:hidden"
+                className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden"
               />
               
               {/* Drawer Container */}
@@ -2757,15 +2923,15 @@ export default function App() {
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed top-0 bottom-0 left-0 w-64 bg-white dark:bg-slate-900 border-r border-slate-250 dark:border-slate-800 z-50 p-5 space-y-6 md:hidden overflow-y-auto"
+                className="fixed top-0 bottom-0 left-0 w-68 apple-glass-header z-50 p-5 space-y-6 md:hidden overflow-y-auto"
               >
-                <div className="flex items-center justify-between border-b pb-4">
-                  <span className="font-bold font-display text-slate-900 dark:text-white">Meu Painel de Vida</span>
+                <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/10 pb-4">
+                  <span className="font-bold font-display text-slate-900 dark:text-white text-sm">Meu Painel de Vida</span>
                   <button 
                     onClick={() => setMobileMenuOpen(false)}
-                    className="p-1 hover:opacity-70 cursor-pointer"
+                    className="p-1.5 apple-glass-button rounded-xl text-slate-500 dark:text-slate-300 cursor-pointer"
                   >
-                    <X size={18} />
+                    <X size={16} />
                   </button>
                 </div>
 
@@ -2776,14 +2942,14 @@ export default function App() {
                       <>
                         {pinned.length > 0 && (
                           <div className="space-y-1">
-                            <span className="text-[12px] font-black text-amber-500 px-2 block">★</span>
+                            <span className="text-[11px] font-black text-amber-500 px-2 block">★ Favoritos</span>
                             <nav className="space-y-0.5">
                               {renderSidebarList(pinned)}
                             </nav>
                           </div>
                         )}
                         <div className="space-y-1">
-                          <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 px-2 block">Navegação Geral</span>
+                          <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-500 px-2 block font-mono">Navegação Geral</span>
                           <nav className="space-y-0.5">
                             {renderSidebarList(unpinned)}
                           </nav>
@@ -2793,29 +2959,29 @@ export default function App() {
                   })()}
                 </div>
 
-                <div className="pt-6 border-t border-slate-200/60 dark:border-slate-800 p-3.5 text-center bg-slate-50 dark:bg-slate-900/45 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-                  <span className="text-[10px] uppercase font-black tracking-wider text-amber-500 block mb-1.5">📖 Versículo do Dia:</span>
+                <div className="pt-4 p-4 text-center apple-glass-subtle space-y-1.5">
+                  <span className="text-[10px] uppercase font-black tracking-wider text-amber-500 block mb-1">📖 Versículo do Dia:</span>
                   <p className="text-[11px] leading-relaxed font-semibold text-slate-800 dark:text-slate-200">
                     "{getDailyVerse().text}"
                   </p>
-                  <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 block mt-1">
+                  <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 block mt-1 font-mono">
                     — {getDailyVerse().ref}
                   </span>
                 </div>
 
-                <div className="pt-4 border-t border-slate-200/60 dark:border-slate-800 space-y-1">
+                <div className="pt-3 border-t border-slate-200/50 dark:border-white/10 space-y-1">
                   <button
                     onClick={() => {
                       setActiveTab('system');
                       setMobileMenuOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer ${
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold tracking-tight text-left transition-all cursor-pointer ${
                       activeTab === 'system'
-                        ? 'bg-indigo-600 text-white shadow-md'
-                        : 'text-slate-600 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-950/20 active:scale-95'
+                        ? 'bg-indigo-600 text-white shadow-[0_2px_10px_rgba(79,70,229,0.3)] dark:bg-white/15 dark:text-white dark:border dark:border-white/10 dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] backdrop-blur-md font-bold'
+                        : 'text-slate-650 dark:text-slate-350 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    <Settings size={16} className={`${activeTab === 'system' ? 'text-white' : 'text-slate-500'} shrink-0`} />
+                    <Settings size={15} className={`${activeTab === 'system' ? 'text-white' : 'text-slate-500'} shrink-0`} />
                     <span>Sistema</span>
                   </button>
                 </div>
@@ -2844,6 +3010,7 @@ export default function App() {
                 setActiveStudiesSubTab={setActiveStudiesSubTab}
                 userName={userName}
                 setUserName={setUserName}
+                onUpdateRoutine={(updated) => setData(prev => ({ ...prev, routine: updated }))}
               />
             )}
 
@@ -3234,7 +3401,30 @@ export default function App() {
             {/* ABA ESTUDO */}
             {activeTab === 'studies' && (
               <div className="w-full">
-                <PersonalStudiesSection onBackToDashboard={() => setActiveTab('dashboard')} />
+                <PersonalStudiesSection 
+                  onBackToDashboard={() => setActiveTab('dashboard')} 
+                  initialSubjectName={studiesInitialSubject}
+                />
+              </div>
+            )}
+
+            {/* ABA ROTINA */}
+            {activeTab === 'routine' && (
+              <div className="w-full">
+                <RoutineSection 
+                  routineState={data.routine || INITIAL_ROUTINE_STATE}
+                  onUpdateRoutine={(updated) => setData(prev => ({ ...prev, routine: updated }))}
+                  onBackToDashboard={() => setActiveTab('dashboard')}
+                  onNavigateToStudies={(subjectName) => {
+                    setStudiesInitialSubject(subjectName);
+                    setActiveTab('studies');
+                    if (subjectName) {
+                      setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('lifehub_navigate_studies', { detail: { subject: subjectName } }));
+                      }, 50);
+                    }
+                  }}
+                />
               </div>
             )}
 
@@ -3262,43 +3452,6 @@ export default function App() {
                   data={data}
                   onUpdateData={(newData) => setData(newData)}
                   onClose={() => setActiveTab('dashboard')}
-                />
-              </div>
-            )}
-
-            {/* REDE DE ADOLESCENTES 2027 */}
-            {activeTab === 'rede_adolescentes' && (
-              <div className="w-full space-y-6">
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm border border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-4">
-                    <button 
-                      onClick={() => setActiveTab('dashboard')}
-                      className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 text-slate-800 dark:text-white cursor-pointer shadow-xs active:scale-95"
-                    >
-                      <span className="text-indigo-500 font-extrabold text-sm">←</span>
-                      <span>Voltar ao Dashboard</span>
-                    </button>
-                    <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
-                    <div>
-                      <h2 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Módulo Ativo</h2>
-                      <p className="text-sm font-black text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
-                        <Users size={16} /> REDE DE ADOLESCENTES 2027
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-xs font-mono text-slate-400 dark:text-slate-500">
-                    Centro de Planejamento & Gestão
-                  </div>
-                </div>
-
-                <RedeAdolescentesSection
-                  data={data.redeAdolescentes || INITIAL_DATA.redeAdolescentes}
-                  onUpdateData={(newRede) => {
-                    setData({
-                      ...data,
-                      redeAdolescentes: newRede
-                    });
-                  }}
                 />
               </div>
             )}

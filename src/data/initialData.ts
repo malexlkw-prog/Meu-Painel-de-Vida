@@ -1,5 +1,6 @@
 import { PainelData } from '../types';
 import { INITIAL_REDE_ADOLESCENTES_DATA } from './initialRedeAdolescentesData';
+import { INITIAL_ROUTINE_STATE } from './initialRoutineData';
 
 export const EMPTY_DATA: PainelData = {
   shoppingList: [],
@@ -56,7 +57,13 @@ export const EMPTY_DATA: PainelData = {
     people: []
   },
   archivedMonths: [],
-  redeAdolescentes: INITIAL_REDE_ADOLESCENTES_DATA
+  redeAdolescentes: INITIAL_REDE_ADOLESCENTES_DATA,
+  routine: {
+    activities: INITIAL_ROUTINE_STATE.activities,
+    history: [],
+    settings: { ...INITIAL_ROUTINE_STATE.settings },
+    streak: { ...INITIAL_ROUTINE_STATE.streak }
+  }
 };
 
 export const INITIAL_DATA: PainelData = {
@@ -849,7 +856,13 @@ export const INITIAL_DATA: PainelData = {
       }
     ]
   },
-  redeAdolescentes: INITIAL_REDE_ADOLESCENTES_DATA
+  redeAdolescentes: INITIAL_REDE_ADOLESCENTES_DATA,
+  routine: {
+    activities: INITIAL_ROUTINE_STATE.activities,
+    history: [],
+    settings: { ...INITIAL_ROUTINE_STATE.settings },
+    streak: { ...INITIAL_ROUTINE_STATE.streak }
+  }
 };
 
 // Simple list of Biblical Books and total chapters

@@ -1,75 +1,8 @@
 import { StudySubject } from '../types';
+import { PORTUGUES_ENEM_SUBJECT } from './portuguesCurriculum';
 
 export const DEFAULT_ENEM_SUBJECTS: StudySubject[] = [
-  {
-    id: 'enem-portugues',
-    name: 'Português',
-    icon: 'BookOpen',
-    color: 'indigo',
-    progress: 25,
-    timeStudiedMinutes: 480,
-    history: [],
-    modules: [
-      {
-        id: 'mod-port-1',
-        title: 'Módulo 1 — Fundamentos da Língua',
-        description: 'Elementos da comunicação humana e funções da linguagem.',
-        lessons: [
-          { id: 'l-port-1', title: 'O que é linguagem', duration: '15 min', type: 'aula', status: 'Concluído', completedAt: '2026-07-20' },
-          { id: 'l-port-2', title: 'Comunicação', duration: '15 min', type: 'aula', status: 'Concluído', completedAt: '2026-07-21' },
-          { id: 'l-port-3', title: 'Emissor, Receptor, Código e Canal', duration: '20 min', type: 'aula', status: 'Concluído', completedAt: '2026-07-22' },
-          { id: 'l-port-4', title: 'Contexto e Mensagem', duration: '15 min', type: 'aula', status: 'Concluído', completedAt: '2026-07-23' },
-          { id: 'l-port-5', title: 'Funções da Linguagem no ENEM', duration: '25 min', type: 'exercicios', status: 'Em andamento' }
-        ]
-      },
-      {
-        id: 'mod-port-2',
-        title: 'Módulo 2 — Fonética e Fonologia',
-        description: 'Estudo dos sons da fala, encontros vocálicos e divisão silábica.',
-        lessons: [
-          { id: 'l-port-6', title: 'Fonema e Letra', duration: '15 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-7', title: 'Vogais, Semivogais e Consoantes', duration: '20 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-8', title: 'Ditongo, Tritongo e Hiato', duration: '20 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-9', title: 'Encontro Consonantal e Dígrafo', duration: '15 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-10', title: 'Divisão Silábica', duration: '15 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-11', title: 'Acentuação Gráfica', duration: '25 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-12', title: 'Ortóepia e Prosódia', duration: '20 min', type: 'revisao', status: 'Não iniciado' }
-        ]
-      },
-      {
-        id: 'mod-port-3',
-        title: 'Módulo 3 — Ortografia e Morfologia',
-        description: 'Regras ortográficas, uso dos porquês e classes gramaticais.',
-        lessons: [
-          { id: 'l-port-13', title: 'Regras Ortográficas do Novo Acordo', duration: '20 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-14', title: 'Uso dos Porquês e Hífen', duration: '20 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-15', title: 'Substantivos e Adjetivos', duration: '25 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-16', title: 'Verbos: Tempos e Modos', duration: '30 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-17', title: 'Pronomes e Colocação Pronominal', duration: '25 min', type: 'exercicios', status: 'Não iniciado' }
-        ]
-      },
-      {
-        id: 'mod-port-4',
-        title: 'Módulo 4 — Sintaxe, Concordância e Crase',
-        description: 'Análise sintática da oração e regência verbal/nominal.',
-        lessons: [
-          { id: 'l-port-18', title: 'Termos Essenciais da Oração', duration: '25 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-19', title: 'Concordância Verbal e Nominal', duration: '30 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-20', title: 'Regência e Uso Obrigatório/Proibido da Crase', duration: '30 min', type: 'aula', status: 'Não iniciado' }
-        ]
-      },
-      {
-        id: 'mod-port-5',
-        title: 'Módulo 5 — Semântica e Figuras de Linguagem',
-        description: 'Significação das palavras, conotação e figuras de estilo.',
-        lessons: [
-          { id: 'l-port-21', title: 'Sinonímia, Antonímia e Ambiguidade', duration: '20 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-22', title: 'Metáfora, Metonímia e Ironia', duration: '25 min', type: 'aula', status: 'Não iniciado' },
-          { id: 'l-port-23', title: 'Interpretação de Texto para o ENEM', duration: '35 min', type: 'exercicios', status: 'Não iniciado' }
-        ]
-      }
-    ]
-  },
+  PORTUGUES_ENEM_SUBJECT,
   {
     id: 'enem-matematica',
     name: 'Matemática',
