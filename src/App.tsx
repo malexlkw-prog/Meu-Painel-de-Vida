@@ -2603,17 +2603,6 @@ export default function App() {
 
 
 
-  /* 100% FULL-SCREEN APPLICATION INTERCEPT FOR STUDIES (ESTUDOS) */
-  if (activeTab === 'studies') {
-    return (
-      <div className="min-h-screen w-screen bg-slate-50 dark:bg-[#070b19] flex flex-col overflow-y-auto">
-        <div className="max-w-7xl mx-auto w-full px-4 py-6 md:px-8 flex-1">
-          <PersonalStudiesSection onBackToDashboard={() => setActiveTab('dashboard')} />
-        </div>
-        {renderTutorialOverlay()}
-      </div>
-    );
-  }
 
   /* 100% FULL-SCREEN APPLICATION INTERCEPT FOR QUERO COMPRAR (DESEJOS & WISHLIST) */
   if (activeTab === 'quero_comprar' || activeTab === 'wishlist') {

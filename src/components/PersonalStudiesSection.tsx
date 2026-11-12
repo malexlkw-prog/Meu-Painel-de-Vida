@@ -183,26 +183,79 @@ export interface PersonalStudiesSectionProps {
 
 export default function PersonalStudiesSection({ 
   onBackToDashboard, 
-  initialSubTab = 'menu',
+  initialSubTab = 'estudos',
   initialSubjectName
 }: PersonalStudiesSectionProps) {
   const [activeSubTab, setActiveSubTab] = useState<'menu' | 'estudos' | 'cursos' | 'idiomas'>(initialSubTab);
 
-  // 1. ESTUDOS STATE
+  // 1. ESTUDOS STATE WITH SAFE NORMALIZATION
   const [plans, setPlans] = useState<StudyPlan[]>(() => {
+    const normalizePlan = (p: StudyPlan): StudyPlan => ({
+      ...p,
+      category: p.category || 'Preparação ENEM',
+      modules: Array.isArray(p.modules)
+        ? p.modules.map(m => ({
+            ...m,
+            topics: Array.isArray(m.topics) ? m.topics : []
+          }))
+        : []
+    });
+
+    const mergeWithOfficialPlans = (existingList: StudyPlan[]): StudyPlan[] => {
+      const sanitized = (existingList || []).map(normalizePlan);
+
+      const updated = sanitized.map(plan => {
+        const idLower = (plan.id || '').toLowerCase();
+        const nameLower = (plan.name || '').toLowerCase();
+
+        if (idLower === 'quimica_enem' || nameLower === 'química' || nameLower === 'quimica') {
+          if (!plan.modules || plan.modules.length < 24) {
+            return normalizePlan(QUIMICA_STUDY_PLAN);
+          }
+        }
+        if (idLower === 'biologia_enem' || nameLower === 'biologia') {
+          if (!plan.modules || plan.modules.length < 23) {
+            return normalizePlan(BIOLOGIA_STUDY_PLAN);
+          }
+        }
+        if (idLower === 'portugues' || nameLower.includes('portugu')) {
+          if (!plan.modules || plan.modules.length < 28) {
+            return normalizePlan(PORTUGUES_STUDY_PLAN);
+          }
+        }
+        return plan;
+      });
+
+      ALL_ENEM_STUDY_PLANS.forEach(officialPlan => {
+        const offNameLower = officialPlan.name.toLowerCase();
+        const exists = updated.some(p => 
+          p.id === officialPlan.id || 
+          p.name.toLowerCase() === offNameLower ||
+          (offNameLower.includes('quim') && p.name.toLowerCase().includes('quim')) ||
+          (offNameLower.includes('bio') && p.name.toLowerCase().includes('bio')) ||
+          (offNameLower.includes('portug') && p.name.toLowerCase().includes('portug'))
+        );
+        if (!exists) {
+          updated.push(normalizePlan(officialPlan));
+        }
+      });
+
+      return updated;
+    };
+
     const savedV6 = localStorage.getItem('lifehub_studies_plans_v6');
     if (savedV6) {
       try {
         const parsed: StudyPlan[] = JSON.parse(savedV6);
-        const quiPlan = parsed.find(p => p.id === 'quimica_enem' || p.name.toLowerCase().trim() === 'química' || p.name.toLowerCase().trim() === 'quimica');
-        if (quiPlan && quiPlan.modules.length >= 24) {
-          return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const merged = mergeWithOfficialPlans(parsed);
+          localStorage.setItem('lifehub_studies_plans_v6', JSON.stringify(merged));
+          return merged;
         }
       } catch (e) {}
     }
 
-    const previousRaw = localStorage.getItem('lifehub_studies_plans_v6') || 
-                        localStorage.getItem('lifehub_studies_plans_v5') || 
+    const previousRaw = localStorage.getItem('lifehub_studies_plans_v5') || 
                         localStorage.getItem('lifehub_studies_plans_v4') || 
                         localStorage.getItem('lifehub_studies_plans_v3') || 
                         localStorage.getItem('lifehub_studies_plans_v2');
@@ -210,49 +263,19 @@ export default function PersonalStudiesSection({
     if (previousRaw) {
       try {
         const parsed: StudyPlan[] = JSON.parse(previousRaw);
-        let hasBio = false;
-        let hasQui = false;
-        const merged = parsed.map(plan => {
-          if (plan.id === 'quimica_enem' || plan.name.toLowerCase().trim() === 'química' || plan.name.toLowerCase().trim() === 'quimica') {
-            hasQui = true;
-            if (plan.modules.length < 24) {
-              return QUIMICA_STUDY_PLAN;
-            }
-          }
-          if (plan.id === 'biologia_enem' || plan.name.toLowerCase().trim() === 'biologia') {
-            hasBio = true;
-            if (plan.modules.length < 23) {
-              return BIOLOGIA_STUDY_PLAN;
-            }
-          }
-          if (plan.id === 'portugues' || plan.name.toLowerCase().includes('portugu')) {
-            if (plan.modules.length < 28) {
-              return PORTUGUES_STUDY_PLAN;
-            }
-          }
-          return plan;
-        });
-
-        if (!hasBio) {
-          merged.push(BIOLOGIA_STUDY_PLAN);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const merged = mergeWithOfficialPlans(parsed);
+          localStorage.setItem('lifehub_studies_plans_v6', JSON.stringify(merged));
+          return merged;
         }
-        if (!hasQui) {
-          merged.push(QUIMICA_STUDY_PLAN);
-        }
-
-        ALL_ENEM_STUDY_PLANS.forEach(enemPlan => {
-          const exists = merged.some(p => p.id === enemPlan.id || p.name.toLowerCase() === enemPlan.name.toLowerCase());
-          if (!exists) {
-            merged.push(enemPlan);
-          }
-        });
-
-        localStorage.setItem('lifehub_studies_plans_v6', JSON.stringify(merged));
-        return merged;
       } catch (e) {}
     }
 
-    return INITIAL_STUDY_PLANS;
+    const defaultPlans = ALL_ENEM_STUDY_PLANS.map(normalizePlan);
+    try {
+      localStorage.setItem('lifehub_studies_plans_v6', JSON.stringify(defaultPlans));
+    } catch (e) {}
+    return defaultPlans;
   });
 
   // Selected Study Plan Modal (stored by ID for single source of truth)
@@ -271,12 +294,27 @@ export default function PersonalStudiesSection({
         setActiveSubTab('cursos');
       } else {
         setActiveSubTab('estudos');
-        const match = plans.find(p => 
-          p.name.toLowerCase() === lower ||
-          p.name.toLowerCase().includes(lower) || 
-          lower.includes(p.name.toLowerCase()) ||
-          p.id.toLowerCase().includes(lower)
-        );
+        const match = plans.find(p => {
+          const pName = (p.name || '').toLowerCase().trim();
+          const pId = (p.id || '').toLowerCase().trim();
+          return (
+            pName === lower ||
+            pName.includes(lower) || 
+            lower.includes(pName) ||
+            pId.includes(lower) ||
+            (lower.includes('portug') && pName.includes('portug')) ||
+            (lower.includes('quim') && pName.includes('quim')) ||
+            (lower.includes('bio') && pName.includes('bio')) ||
+            (lower.includes('mat') && pName.includes('mat')) ||
+            (lower.includes('hist') && pName.includes('hist')) ||
+            (lower.includes('geo') && pName.includes('geo')) ||
+            (lower.includes('fis') && pName.includes('fis')) ||
+            (lower.includes('filo') && pName.includes('filo')) ||
+            (lower.includes('socio') && pName.includes('socio')) ||
+            (lower.includes('redac') && pName.includes('redac')) ||
+            (lower.includes('livre') && pName.includes('livre'))
+          );
+        });
         if (match) {
           setSelectedPlanId(match.id);
         }
@@ -533,82 +571,105 @@ export default function PersonalStudiesSection({
     localStorage.setItem('lifehub_studies_languages_v2', JSON.stringify(languages));
   }, [languages]);
 
-  // PROGRESS CALCULATIONS
+  // PROGRESS CALCULATIONS - 100% DEFENSIVE & NULL-SAFE
   const getModuleProgress = (module: StudyModule): number => {
-    if (!module.topics || module.topics.length === 0) return 0;
-    const completed = module.topics.filter(t => t.status === 'concluido').length;
+    if (!module || !Array.isArray(module.topics) || module.topics.length === 0) return 0;
+    const completed = module.topics.filter(t => t && t.status === 'concluido').length;
     return Math.round((completed / module.topics.length) * 100);
   };
 
   const getPlanProgress = (plan: StudyPlan): number => {
+    if (!plan || !Array.isArray(plan.modules)) return 0;
     let totalTopics = 0;
     let completedTopics = 0;
     plan.modules.forEach(m => {
-      m.topics.forEach(t => {
-        totalTopics++;
-        if (t.status === 'concluido') completedTopics++;
-      });
+      if (m && Array.isArray(m.topics)) {
+        m.topics.forEach(t => {
+          totalTopics++;
+          if (t && t.status === 'concluido') completedTopics++;
+        });
+      }
     });
     if (totalTopics === 0) return 0;
     return Math.round((completedTopics / totalTopics) * 100);
   };
 
   const getOverallStudiesProgress = (): number => {
+    if (!plans || !Array.isArray(plans)) return 0;
     let totalTopics = 0;
     let completedTopics = 0;
     plans.forEach(plan => {
-      plan.modules.forEach(m => {
-        m.topics.forEach(t => {
-          totalTopics++;
-          if (t.status === 'concluido') completedTopics++;
+      if (plan && Array.isArray(plan.modules)) {
+        plan.modules.forEach(m => {
+          if (m && Array.isArray(m.topics)) {
+            m.topics.forEach(t => {
+              totalTopics++;
+              if (t && t.status === 'concluido') completedTopics++;
+            });
+          }
         });
-      });
+      }
     });
     if (totalTopics === 0) return 0;
     return Math.round((completedTopics / totalTopics) * 100);
   };
 
   const getCourseProgress = (course: Course): number => {
+    if (!course) return 0;
+    if (!course.modules || !Array.isArray(course.modules) || course.modules.length === 0) {
+      return course.status === 'concluido' ? 100 : course.status === 'em_andamento' ? 50 : 0;
+    }
     let totalLessons = 0;
     let completedLessons = 0;
     course.modules.forEach(m => {
-      m.lessons.forEach(l => {
-        totalLessons++;
-        if (l.status === 'concluido') completedLessons++;
-      });
+      if (m && Array.isArray(m.lessons)) {
+        m.lessons.forEach((l: any) => {
+          totalLessons++;
+          if (l && l.status === 'concluido') completedLessons++;
+        });
+      }
     });
-    if (totalLessons === 0) return 0;
+    if (totalLessons === 0) return course.status === 'concluido' ? 100 : course.status === 'em_andamento' ? 50 : 0;
     return Math.round((completedLessons / totalLessons) * 100);
   };
 
   const getLanguageProgress = (lang: LanguageItem): number => {
+    if (!lang) return 0;
     let totalTopics = 0;
     let completedTopics = 0;
-    lang.modules.forEach(m => {
-      m.topics.forEach(t => {
-        totalTopics++;
-        if (t.status === 'concluido') completedTopics++;
+    if (lang.modules && Array.isArray(lang.modules)) {
+      lang.modules.forEach(m => {
+        if (m && Array.isArray(m.topics)) {
+          m.topics.forEach(t => {
+            totalTopics++;
+            if (t && t.status === 'concluido') completedTopics++;
+          });
+        }
       });
-    });
+    }
     if (totalTopics === 0) {
-      // average of skills
-      const vals = Object.values(lang.skills);
-      return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+      if (lang.skills) {
+        const vals = Object.values(lang.skills);
+        if (vals.length > 0) {
+          return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+        }
+      }
+      return 0;
     }
     return Math.round((completedTopics / totalTopics) * 100);
   };
 
   // Status toggle handler for topics: ⚪ -> 🟡 -> 🟢 -> ⚪
   const toggleTopicStatus = (planId: string, moduleId: string, topicId: string) => {
-    setPlans(prev => prev.map(p => {
+    setPlans(prev => (prev || []).map(p => {
       if (p.id !== planId) return p;
       return {
         ...p,
-        modules: p.modules.map(m => {
+        modules: (p.modules || []).map(m => {
           if (m.id !== moduleId) return m;
           return {
             ...m,
-            topics: m.topics.map(t => {
+            topics: (m.topics || []).map(t => {
               if (t.id !== topicId) return t;
               const nextStatus: Record<string, 'concluido' | 'em_andamento' | 'nao_iniciado'> = {
                 'nao_iniciado': 'em_andamento',
@@ -649,9 +710,110 @@ export default function PersonalStudiesSection({
   return (
     <div className="space-y-6">
       
-      {/* ==================================================================== */}
-      {/* 1º NÍVEL: MENU PRINCIPAL DE ESTUDOS (APENAS SUB-ABAS DISPONÍVEIS) */}
-      {/* ==================================================================== */}
+      {/* UNIVERSAL TOP NAVIGATION BAR FOR STUDIES (APPLE GLASS PILL SYSTEM) */}
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 p-3 rounded-3xl shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          {onBackToDashboard && (
+            <button
+              onClick={onBackToDashboard}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl transition-all flex items-center gap-1.5 text-xs font-black shadow-2xs cursor-pointer"
+              title="Voltar ao Dashboard Geral"
+            >
+              <ArrowLeft size={15} />
+              <span>Dashboard</span>
+            </button>
+          )}
+
+          <div className="flex items-center p-1 bg-slate-100/90 dark:bg-slate-800/90 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 flex-wrap sm:flex-nowrap gap-1">
+            <button
+              onClick={() => setActiveSubTab('estudos')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeSubTab === 'estudos'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400'
+              }`}
+            >
+              <BookOpen size={14} />
+              <span>Planos ENEM</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeSubTab === 'estudos' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
+                {plans.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('cursos')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeSubTab === 'cursos'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400'
+              }`}
+            >
+              <Award size={14} />
+              <span>Cursos</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeSubTab === 'cursos' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
+                {courses.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('idiomas')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeSubTab === 'idiomas'
+                  ? 'bg-sky-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400'
+              }`}
+            >
+              <Globe size={14} />
+              <span>Idiomas</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeSubTab === 'idiomas' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
+                {languages.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('menu')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeSubTab === 'menu'
+                  ? 'bg-violet-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-violet-600 dark:hover:text-violet-400'
+              }`}
+              title="Visão Geral / Hub de Estudos"
+            >
+              <GraduationCap size={14} />
+              <span>Hub</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {activeSubTab === 'estudos' && (
+            <button
+              onClick={() => setIsAddingPlanModal(true)}
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus size={15} /> Novo Plano
+            </button>
+          )}
+          {activeSubTab === 'cursos' && (
+            <button
+              onClick={() => setIsAddingCourseModal(true)}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus size={15} /> Adicionar Curso
+            </button>
+          )}
+          {activeSubTab === 'idiomas' && (
+            <button
+              onClick={() => setIsAddingLanguageModal(true)}
+              className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus size={15} /> Novo Idioma
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 1º NÍVEL: MENU PRINCIPAL DE ESTUDOS (HUB) */}
       {activeSubTab === 'menu' && (
         <div className="space-y-6">
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 rounded-3xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -854,7 +1016,7 @@ export default function PersonalStudiesSection({
                       <h3 className="font-extrabold text-slate-900 dark:text-white text-base group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                         {plan.name}
                       </h3>
-                      <span className="text-xs text-slate-400">{plan.modules.length} módulos</span>
+                      <span className="text-xs text-slate-400">{(plan.modules || []).length} módulos</span>
                     </div>
                     <span className="text-base font-black text-indigo-600 dark:text-indigo-400">{prog}%</span>
                   </div>
@@ -1445,9 +1607,9 @@ export default function PersonalStudiesSection({
             <div className="space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h4 className="font-extrabold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
-                  Módulos do Plano ({selectedPlanModal.modules.length})
+                  Módulos do Plano ({(selectedPlanModal.modules || []).length})
                 </h4>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {(selectedPlanModal.id === 'portugues' || selectedPlanModal.name.toLowerCase().includes('portugu')) && (
                     <button
                       type="button"
@@ -1458,6 +1620,45 @@ export default function PersonalStudiesSection({
                       title="Restaurar a grade completa oficial de 28 módulos"
                     >
                       <Sparkles size={13} /> Restaurar 28 Módulos
+                    </button>
+                  )}
+                  {(selectedPlanModal.id === 'biologia_enem' || selectedPlanModal.name.toLowerCase().includes('biolog')) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlans(prev => prev.map(p => (p.id === 'biologia_enem' || p.name.toLowerCase().includes('biolog')) ? BIOLOGIA_STUDY_PLAN : p));
+                      }}
+                      className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-200/50 dark:border-emerald-800/50"
+                      title="Restaurar a grade completa oficial de 23 módulos"
+                    >
+                      <Sparkles size={13} /> Restaurar 23 Módulos
+                    </button>
+                  )}
+                  {(selectedPlanModal.id === 'quimica_enem' || selectedPlanModal.name.toLowerCase().includes('quimic')) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlans(prev => prev.map(p => (p.id === 'quimica_enem' || p.name.toLowerCase().includes('quimic')) ? QUIMICA_STUDY_PLAN : p));
+                      }}
+                      className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg border border-amber-200/50 dark:border-amber-800/50"
+                      title="Restaurar a grade completa oficial de 24 módulos"
+                    >
+                      <Sparkles size={13} /> Restaurar 24 Módulos
+                    </button>
+                  )}
+                  {ALL_ENEM_STUDY_PLANS.some(ep => ep.id === selectedPlanModal.id && ep.id !== 'portugues' && ep.id !== 'biologia_enem' && ep.id !== 'quimica_enem') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const match = ALL_ENEM_STUDY_PLANS.find(ep => ep.id === selectedPlanModal.id);
+                        if (match) {
+                          setPlans(prev => prev.map(p => p.id === selectedPlanModal.id ? match : p));
+                        }
+                      }}
+                      className="text-xs font-bold text-violet-600 dark:text-violet-400 hover:underline flex items-center gap-1 cursor-pointer bg-violet-50 dark:bg-violet-950/60 px-2.5 py-1 rounded-lg border border-violet-200/50 dark:border-violet-800/50"
+                      title="Restaurar a grade padrão desta matéria"
+                    >
+                      <Sparkles size={13} /> Restaurar Grade Oficial
                     </button>
                   )}
                   {!isAddingPlanModule && (
@@ -1507,7 +1708,7 @@ export default function PersonalStudiesSection({
               )}
 
               <div className="space-y-3">
-                {selectedPlanModal.modules.map(mod => {
+                {(selectedPlanModal.modules || []).map(mod => {
                   const modProg = getModuleProgress(mod);
 
                   return (
@@ -1523,7 +1724,7 @@ export default function PersonalStudiesSection({
                           <button
                             onClick={e => {
                               e.stopPropagation();
-                              setPlans(prev => prev.map(p => p.id === selectedPlanModal.id ? { ...p, modules: p.modules.filter(m => m.id !== mod.id) } : p));
+                              setPlans(prev => prev.map(p => p.id === selectedPlanModal.id ? { ...p, modules: (p.modules || []).filter(m => m.id !== mod.id) } : p));
                             }}
                             className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
                             title="Excluir Módulo"
@@ -1532,7 +1733,7 @@ export default function PersonalStudiesSection({
                           </button>
                         </div>
                       </div>
-                      <p className="text-xs text-slate-400">{mod.topics.length} assuntos • Clique para ver assuntos</p>
+                      <p className="text-xs text-slate-400">{(mod.topics || []).length} assuntos • Clique para ver assuntos</p>
                     </div>
                   );
                 })}
@@ -1646,7 +1847,7 @@ export default function PersonalStudiesSection({
               )}
 
               <div className="space-y-2">
-                {selectedModuleInPlan.topics.map(topic => (
+                {(selectedModuleInPlan.topics || []).map(topic => (
                   <div
                     key={topic.id}
                     onClick={() => toggleTopicStatus(selectedPlanModal.id, selectedModuleInPlan.id, topic.id)}
@@ -1667,7 +1868,7 @@ export default function PersonalStudiesSection({
                           e.stopPropagation();
                           setPlans(prev => prev.map(p => p.id === selectedPlanModal.id ? {
                             ...p,
-                            modules: p.modules.map(m => m.id === selectedModuleInPlan.id ? { ...m, topics: m.topics.filter(t => t.id !== topic.id) } : m)
+                            modules: (p.modules || []).map(m => m.id === selectedModuleInPlan.id ? { ...m, topics: (m.topics || []).filter(t => t.id !== topic.id) } : m)
                           } : p));
                         }}
                         className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
@@ -1957,7 +2158,7 @@ export default function PersonalStudiesSection({
               )}
 
               <div className="space-y-2">
-                {selectedLanguageModal.modules.map(mod => (
+                {(selectedLanguageModal.modules || []).map(mod => (
                   <div key={mod.id} className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-800 space-y-2">
                     <div className="flex items-center justify-between font-bold text-xs text-slate-800 dark:text-slate-200">
                       <span>{mod.title}</span>
@@ -1972,7 +2173,7 @@ export default function PersonalStudiesSection({
                         )}
                         <button
                           onClick={() => {
-                            setLanguages(prev => prev.map(l => l.id === selectedLanguageModal.id ? { ...l, modules: l.modules.filter(m => m.id !== mod.id) } : l));
+                            setLanguages(prev => prev.map(l => l.id === selectedLanguageModal.id ? { ...l, modules: (l.modules || []).filter(m => m.id !== mod.id) } : l));
                           }}
                           className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
                           title="Excluir Módulo"
@@ -2006,7 +2207,7 @@ export default function PersonalStudiesSection({
                                 const newT: StudyTopic = { id: Date.now().toString(), title: newLangTopicTitle.trim(), status: 'nao_iniciado' };
                                 setLanguages(prev => prev.map(l => l.id === selectedLanguageModal.id ? {
                                   ...l,
-                                  modules: l.modules.map(m => m.id === mod.id ? { ...m, topics: [...m.topics, newT] } : m)
+                                  modules: (l.modules || []).map(m => m.id === mod.id ? { ...m, topics: [...(m.topics || []), newT] } : m)
                                 } : l));
                                 setNewLangTopicTitle('');
                                 setAddingTopicForLangModId(null);
@@ -2021,7 +2222,7 @@ export default function PersonalStudiesSection({
                     )}
 
                     <div className="space-y-1">
-                      {mod.topics.map(t => (
+                      {(mod.topics || []).map(t => (
                         <div
                           key={t.id}
                           onClick={() => {
